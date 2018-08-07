@@ -260,6 +260,7 @@ func validatorsHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerF
 			return
 		}
 
+		w.Header().Set("Content-Type", "application/json")
 		w.Write(output)
 	}
 }
