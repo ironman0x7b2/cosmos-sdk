@@ -640,8 +640,8 @@ func PayVpnServiceHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 			sdk.ErrInternal("Parse Coins Failed")
 		}
 		coin := sdk.Coins{sdk.NewCoin(coins[0].Denom, 100)}
-		if !coins.Minus(coin).IsPositive() || !coins.Minus(coin).IsZero() {
-			w.Write([]byte("Funds must be Greaterthan or equals to 100"))
+		if !coins.Minus(coin).IsPositive() {
+			w.Write([]byte("Funds must be Greater than or equals to 100"))
 			return
 		}
 		infos, err := kb.List()
