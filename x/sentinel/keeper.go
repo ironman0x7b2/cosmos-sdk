@@ -98,7 +98,7 @@ func (keeper Keeper) PayVpnService(ctx sdk.Context, msg MsgPayVpnService) (strin
 	sentKey := senttype.GetNewSessionId()
 	vpnpub, err := keeper.account.GetPubKey(ctx, msg.Vpnaddr)
 	if err != nil {
-		ErrInvalidPubKey("Vpn pubkey failed")
+		return "",ErrInvalidPubKey("Vpn pubkey failed")
 	}
 	session := senttype.GetNewSessionMap(msg.Coins, vpnpub, msg.Pubkey, msg.From)
 	store := ctx.KVStore(keeper.sentStoreKey)
