@@ -210,6 +210,12 @@ func (keeper Keeper) NewMsgDecoder(acc []byte) (senttype.Registervpn, sdk.Error)
 
 }
 
+func (keeper Keeper) SendTokens(ctx sdk.Context, msg MsgSendTokens) (sdk.AccAddress, sdk.Error) {
+	keeper.coinKeeper.SubtractCoins(ctx, msg.From, msg.Coins)
+	keeper.coinKeeper.AddCoins(ctx, msg.To, msg.Coins)
+	return msg.To, nil
+			}   
+
 //func (keeper Keeper) GetsentStore(ctx sdk.Context, msg MsgRegisterMasterNode) (sdk.KVStore, sdk.AccAddress) {
 //	return ctx.KVStore(keeper.sentStoreKey), addr1
 //}

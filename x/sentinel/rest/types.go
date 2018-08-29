@@ -82,3 +82,11 @@ type Response struct {
 	Data    []byte          `json:"data"`
 	Tags    []common.KVPair `json:"tags"`
 }
+
+type SendTokens struct {
+	Name      string `json:"name"`
+	Password  string `json:"password"`
+	ToAddress string `json:"to"`
+	Coins     string `json:"amount"`
+	Gas       int64  `json:"gas"`
+}

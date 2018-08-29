@@ -692,7 +692,7 @@ func PayVpnServiceHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 }
 
 //To create client signature....... This is not a transaction......
-func SendSignHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
+func SendSignHandlerFn() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var kb keys.Keybase
 		msg := ClientSignature{}
@@ -986,4 +986,91 @@ func GetVpnPaymentHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 		w.Write(data)
 	}
 	return nil
+}
+
+/**
+* @api {post} /send To send money to account.
+* @apiName sendTokens
+* @apiGroup Sentinel-Tendermint
+* @apiParam {String} name Name Account holder name.
+* @apiParam {String} password Password password for account.
+* @apiParam {String} to To address.
+* @apiParam {String} amount Amount to send.
+* @apiParam {Number} gas gas value.
+*
+* @apiSuccessExample Response:
+*{
+*   "Success": true,
+*   "Hash": "CF8E073D624F7FA6A41C3CAD9B4A1DB693234225",
+*   "Height": 343,
+*   "Data": "eyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YWx1ZSI6eyJGc3BlZWQiOiIxMiIsIlBwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19",
+*    "Tags": [
+*        {
+*            "key": "dnBuIHJlZ2lzdGVyZWQgYWRkcmVzcw==",
+*            "value": "Y29zbW9zYWNjYWRkcjFlZ3RydjdxdGU0NnY2cXEzN3p0YzB2dzRuMmhrejZuempycDVhZQ=="
+*        }
+*		    ]
+*}
+*/
+
+func SendTokenHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		msg := SendTokens{}
+		body, err := ioutill.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		err = json.Unmarshal(body, &msg)
+		if err != nil {
+			sentinel.ErrUnMarshal("UnMarshal of MessageType is failed")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if msg.Coins == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(" invalid amount."))
+			return
+		}
+		coins, err := sdk.ParseCoins(msg.Coins)
+		if err != nil {
+			sdk.ErrInternal("Parse Coins failed")
+		}
+		ctx = ctx.WithFromAddressName(msg.Name)
+		ctx = ctx.WithGas(msg.Gas)
+		addr, err := ctx.GetFromAddress()
+		if err != nil {
+			sdk.ErrInvalidAddress("The given Adress is Invalid")
+		}
+		to, err := sdk.AccAddressFromBech32(msg.ToAddress)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
+		acc, err := ctx.GetAccountNumber(addr)
+		seq, err := ctx.NextSequence(addr)
+		ctx = ctx.WithSequence(seq)
+		ctx = ctx.WithAccountNumber(acc)
+		msg1 := sentinel.NewMsgSendTokens(addr, coins, to)
+		txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		res, err := ctx.BroadcastTx(txBytes)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		data, err := json.MarshalIndent(respon, "", " ")
+		w.Write(data)
+
+	}
 }
