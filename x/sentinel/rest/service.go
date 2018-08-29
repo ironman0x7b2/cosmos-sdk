@@ -142,10 +142,10 @@ import (
 */
 
 
-func NewResponse(sucess bool, hash string, height int64, data []byte, tags []common.KVPair) Response {
+func NewResponse(success bool, hash string, height int64, data []byte, tags []common.KVPair) Response {
 	//var res Response
 	return Response{
-		Success: sucess,
+		Success: success,
 		Height:  height,
 		Hash:    hash,
 		Data:    data,
