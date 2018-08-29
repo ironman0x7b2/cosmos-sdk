@@ -11,20 +11,18 @@ import (
 
 	ioutill "io/ioutil"
 
-	common "github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/crypto"
+	common "github.com/tendermint/tendermint/libs/common"
 
 	"github.com/cosmos/cosmos-sdk/client/context"
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
-	"github.com/cosmos/cosmos-sdk/x/sentinel"
-	senttype "github.com/cosmos/cosmos-sdk/x/sentinel/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/wire"
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
+	"github.com/cosmos/cosmos-sdk/x/sentinel"
+	senttype "github.com/cosmos/cosmos-sdk/x/sentinel/types"
 )
-
-
 
 /**
 * @api {get} /keys/seed To get seeds for generate keys.
@@ -140,7 +138,6 @@ import (
 *		    ]
 *}
 */
-
 
 func NewResponse(success bool, hash string, height int64, data []byte, tags []common.KVPair) Response {
 	//var res Response
@@ -900,12 +897,6 @@ func RefundHandleFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
 *}
 */
 
-
-
-
-
-
-
 func GetVpnPaymentHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -951,7 +942,7 @@ func GetVpnPaymentHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 
 		var sig crypto.Signature
 		//sig, err := senttype.GetBech64Signature(msg.Signature)
-		cdc.UnmarshalBinaryBare([]byte(msg.Signature),&sig)
+		cdc.UnmarshalBinaryBare([]byte(msg.Signature), &sig)
 		if err != nil {
 			w.Write([]byte("Signature from string conversion failed"))
 		}
@@ -1011,7 +1002,7 @@ func GetVpnPaymentHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 *        }
 *		    ]
 *}
-*/
+ */
 
 func SendTokenHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
