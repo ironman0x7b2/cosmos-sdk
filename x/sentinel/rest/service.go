@@ -203,7 +203,7 @@ func registervpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handler
 		ctx = ctx.WithFromAddressName(msg.Localaccount)
 		addr, err := ctx.GetFromAddress()
 		if err != nil {
-			sdk.ErrInvalidAddress("The given Adress is Invalid")
+			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
 		ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
 		acc, err := ctx.GetAccountNumber(addr)
@@ -290,7 +290,7 @@ func registermasterdHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Han
 		ctx = ctx.WithGas(msg.Gas)
 		addr, err := ctx.GetFromAddress()
 		if err != nil {
-			sdk.ErrInvalidAddress("The given Adress is Invalid")
+			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
 		ctx = ctx.WithGas(msg.Gas)
 		ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
@@ -482,7 +482,7 @@ func deleteMasterHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handle
 		ctx = ctx.WithFromAddressName(msg.Name)
 		addr, err := ctx.GetFromAddress()
 		if err != nil {
-			sdk.ErrInvalidAddress("The given Adress is Invalid")
+			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
 		ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
 		acc, err := ctx.GetAccountNumber(addr)
@@ -660,7 +660,7 @@ func PayVpnServiceHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 		ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
 		addr, err := ctx.GetFromAddress()
 		if err != nil {
-			sdk.ErrInvalidAddress("The given Adress is Invalid")
+			sdk.ErrInvalidAddress("The given Address is Invalid")
 			return
 		}
 		acc, err := ctx.GetAccountNumber(addr)
@@ -811,7 +811,7 @@ func RefundHandleFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
 		ctx = ctx.WithGas(msg.Gas)
 		addr, err := ctx.GetFromAddress()
 		if err != nil {
-			sdk.ErrInvalidAddress("The given Adress is Invalid")
+			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
 		ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
 		acc, err := ctx.GetAccountNumber(addr)
@@ -1033,7 +1033,7 @@ func SendTokenHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFu
 		ctx = ctx.WithGas(msg.Gas)
 		addr, err := ctx.GetFromAddress()
 		if err != nil {
-			sdk.ErrInvalidAddress("The given Adress is Invalid")
+			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
 		to, err := sdk.AccAddressFromBech32(msg.ToAddress)
 		if err != nil {
