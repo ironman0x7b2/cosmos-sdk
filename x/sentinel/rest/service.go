@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -12,7 +13,7 @@ import (
 	ioutill "io/ioutil"
 
 	"github.com/tendermint/tendermint/crypto"
-	common "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/libs/common"
 
 	"github.com/cosmos/cosmos-sdk/client/context"
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
@@ -724,8 +725,14 @@ func SendSignHandlerFn() http.HandlerFunc {
 		if err != nil {
 			sdk.ErrInternal("Parse Coins Failed")
 		}
+		sessionid, err := base64.StdEncoding.DecodeString(msg.Sessionid)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("failed with session Id decode"))
+			return
+		}
 
-		bz := senttype.ClientStdSignBytes(coins, []byte(msg.Sessionid), msg.Counter, msg.IsFinal)
+		bz := senttype.ClientStdSignBytes(coins, sessionid, msg.Counter, msg.IsFinal)
 		sign, _, err := kb.Sign(msg.Localaccount, msg.Password, bz)
 		if err != nil {
 			w.Write([]byte(" Signature failed"))
@@ -938,15 +945,17 @@ func GetVpnPaymentHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 		coins, err := sdk.ParseCoins(msg.Coins)
 		if err != nil {
 			sdk.ErrInternal("Parse Coins failed")
+			return
 		}
 
 		var sig crypto.Signature
-		//sig, err := senttype.GetBech64Signature(msg.Signature)
-		cdc.UnmarshalBinaryBare([]byte(msg.Signature), &sig)
+		sig, err = senttype.GetBech64Signature(msg.Signature)
+
+		//sig,err=cryptoAmino.SignatureFromBytes([]byte(msg.Signature))
 		if err != nil {
 			w.Write([]byte("Signature from string conversion failed"))
+			return
 		}
-
 		ctx = ctx.WithFromAddressName(msg.Localaccount)
 		ctx = ctx.WithGas(msg.Gas)
 		ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
