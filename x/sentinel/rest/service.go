@@ -1,7 +1,6 @@
 package rest
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -725,14 +724,8 @@ func SendSignHandlerFn() http.HandlerFunc {
 		if err != nil {
 			sdk.ErrInternal("Parse Coins Failed")
 		}
-		sessionid, err := base64.StdEncoding.DecodeString(msg.Sessionid)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("failed with session Id decode"))
-			return
-		}
 
-		bz := senttype.ClientStdSignBytes(coins, sessionid, msg.Counter, msg.IsFinal)
+		bz := senttype.ClientStdSignBytes(coins, []byte(msg.Sessionid), msg.Counter, msg.IsFinal)
 		sign, _, err := kb.Sign(msg.Localaccount, msg.Password, bz)
 		if err != nil {
 			w.Write([]byte(" Signature failed"))

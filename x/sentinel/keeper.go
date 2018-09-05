@@ -1,7 +1,8 @@
 package sentinel
 
 import (
-	"encoding/base64"
+	"crypto/md5"
+	"encoding/hex"
 	"math"
 	"strconv"
 
@@ -53,7 +54,7 @@ func (keeper Keeper) RegisterVpnService(ctx sdk.Context, msg MsgRegisterVpnServi
 		store.Set([]byte(sentKey), bz)
 		return msg.From, nil
 	}
-	return nil, ErrAccountAddressExist("Address already Registered as VPN node")
+	return nil, ErrAccountAddressExist("Address already RegsentKeyistered as VPN node")
 }
 
 func (keeper Keeper) RegisterMasterNode(ctx sdk.Context, msg MsgRegisterMasterNode) (sdk.AccAddress, sdk.Error) {
@@ -96,13 +97,17 @@ func (keeper Keeper) DeleteMasterNode(ctx sdk.Context, msg MsgDeleteMasterNode) 
 func (keeper Keeper) PayVpnService(ctx sdk.Context, msg MsgPayVpnService) (string, sdk.Error) {
 
 	var err error
-
+	hash := md5.New()
 	sequence, err := keeper.account.GetSequence(ctx, msg.From)
 	if err != nil {
 		return "", sdk.ErrInvalidSequence("Invalid sequence")
 	}
 	addressbytes := []byte(msg.From.String() + "" + strconv.Itoa(int(sequence)))
-	sentKey := crypto.Sha256(addressbytes)[:20]
+	hash.Write(addressbytes)
+	if err != nil {
+		return "", ErrBech32Decode("address hash is failed")
+	}
+	sentKey := hex.EncodeToString(hash.Sum(nil))[:20]
 	vpnpub, err := keeper.account.GetPubKey(ctx, msg.Vpnaddr)
 	if err != nil {
 		return "", ErrInvalidPubKey("Vpn pubkey failed")
@@ -122,19 +127,15 @@ func (keeper Keeper) PayVpnService(ctx sdk.Context, msg MsgPayVpnService) (strin
 	if err != nil {
 		return "", sdk.ErrInsufficientCoins("Coins Parse failed or insufficient funds")
 	}
-	store.Set(sentKey, bz)
+	store.Set([]byte(sentKey), bz)
 	return string(sentKey[:]), nil
 }
 func (keeper Keeper) RefundBal(ctx sdk.Context, msg MsgRefund) (sdk.AccAddress, sdk.Error) {
 
 	var err error
-	session_id, err := base64.StdEncoding.DecodeString(string(msg.Sessionid))
-	if err != nil {
-		return nil, ErrInvalidSessionid("Invalid SessionId")
-	}
 	var clientSession senttype.Session
 	store := ctx.KVStore(keeper.sentStoreKey)
-	x := store.Get(session_id)
+	x := store.Get([]byte(msg.Sessionid))
 	if x == nil {
 		return nil, ErrInvalidSessionid("Invalid SessionId")
 	}
@@ -174,21 +175,18 @@ func (keeper Keeper) RefundBal(ctx sdk.Context, msg MsgRefund) (sdk.AccAddress, 
 func (keeper Keeper) GetVpnPayment(ctx sdk.Context, msg MsgGetVpnPayment) ([]byte, sdk.Error) {
 
 	var clientSession senttype.Session
-	session_id, err := base64.StdEncoding.DecodeString(string(msg.Sessionid))
-	if err != nil {
-		return nil, ErrInvalidSessionid("Invalid SessionId")
-	}
+
 	store := ctx.KVStore(keeper.sentStoreKey)
-	x := store.Get(session_id)
+	x := store.Get([]byte(msg.Sessionid))
 	if x == nil {
 		return nil, ErrInvalidSessionid("Invalid session Id")
 	}
-	err = keeper.cdc.UnmarshalBinary(x, &clientSession)
+	err := keeper.cdc.UnmarshalBinary(x, &clientSession)
 	if err != nil {
 		return nil, ErrUnMarshal("Unmarshal of bytes failed")
 	}
 	ClientPubkey := clientSession.CPubKey
-	signBytes := senttype.ClientStdSignBytes(msg.Coins, session_id, msg.Counter, msg.IsFinal)
+	signBytes := senttype.ClientStdSignBytes(msg.Coins, []byte(msg.Sessionid), msg.Counter, msg.IsFinal)
 	if !ClientPubkey.VerifyBytes(signBytes, msg.Signature) {
 		return nil, sdk.ErrUnauthorized("signature verification failed")
 	}
@@ -203,7 +201,7 @@ func (keeper Keeper) GetVpnPayment(ctx sdk.Context, msg MsgGetVpnPayment) ([]byt
 			if err != nil {
 				return nil, sdk.ErrInsufficientCoins("Insufficient funds")
 			}
-			sentKey := session_id
+			sentKey := []byte(msg.Sessionid)
 
 			if clientSessionData.TotalLockedCoins.Minus(clientSessionData.ReleasedCoins).IsZero() && !clientSessionData.TotalLockedCoins.Minus(clientSessionData.ReleasedCoins).IsPositive() || clientSessionData.Status == 0 {
 				store.Delete(sentKey)
@@ -221,6 +219,12 @@ func (keeper Keeper) GetVpnPayment(ctx sdk.Context, msg MsgGetVpnPayment) ([]byt
 
 				return sentKey, nil
 			}
+			bz, err := keeper.cdc.MarshalBinary(clientSessionData)
+			if err != nil {
+				return nil, ErrUnMarshal("Unmarshal of bytes failed")
+			}
+			store.Set(sentKey, bz)
+
 			return sentKey, nil
 		}
 		return msg.Sessionid, sdk.ErrInsufficientCoins("Insufficient Coins ")
