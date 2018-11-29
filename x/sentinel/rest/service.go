@@ -542,7 +542,7 @@ func validateIp(host string) bool {
 * @apiParam {String} sig_password NewAccountPassword.
 * @apiError AccountNotExists VPN Node not exists
 * @apiError AccountNameAlreadyExists The new account name is already exist
-* @apiError InsufficientFunds Funds are less than 100
+* @apiError InsufficientFunds  Insufficient Funds
 * @apiErrorExample AccountVPNNotExists-Response:
 *{
  * checkTx failed: (1245197) Msg 0 failed: === ABCI Log ===
@@ -562,7 +562,7 @@ func validateIp(host string) bool {
 *}
 * @apiErrorExample InsufficientFunds-Response:
 *{
-	* "Funds must be Greaterthan or equals to 100"
+	* "Insufficient Funds"
 *}
 * @apiSuccessExample Response:
 {
@@ -610,13 +610,13 @@ func PayVpnServiceHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 		}
 		if msg.SigPassword == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(" Enter  the Password."))
+			w.Write([]byte(" Enter the Password."))
 			return
 		}
 
 		if msg.Coins == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(" invalid address."))
+			w.Write([]byte("Enter the coins "))
 			return
 		}
 		if msg.Vpnaddr == "" {
@@ -636,11 +636,7 @@ func PayVpnServiceHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 
 			sdk.ErrInternal("Parse Coins Failed")
 		}
-		coin := sdk.Coins{sdk.NewCoin(coins[0].Denom, 99)}
-		if !coins.Minus(coin).IsPositive() {
-			w.Write([]byte("Funds must be Greater than or equals to 100"))
-			return
-		}
+
 		infos, err := kb.List()
 		for _, i := range infos {
 			if i.GetName() == msg.SigName {
