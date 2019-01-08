@@ -10,6 +10,8 @@ import (
 	rpc "github.com/cosmos/cosmos-sdk/client/rpc"
 	tx "github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/wire"
+	sentype "github.com/cosmos/cosmos-sdk/x/sentinel"
+	sentinel "github.com/cosmos/cosmos-sdk/x/sentinel/rest"
 	auth "github.com/cosmos/cosmos-sdk/x/auth/client/rest"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/client/rest"
 	gov "github.com/cosmos/cosmos-sdk/x/gov/client/rest"
@@ -77,7 +79,7 @@ func createHandler(cdc *wire.Codec) http.Handler {
 	if err != nil {
 		panic(err)
 	}
-
+	keeper := sentype.Keeper{}
 	ctx := context.NewCoreContextFromViper()
 
 	// TODO: make more functional? aka r = keys.RegisterRoutes(r)
@@ -86,6 +88,7 @@ func createHandler(cdc *wire.Codec) http.Handler {
 
 	keys.RegisterRoutes(r)
 	rpc.RegisterRoutes(ctx, r)
+	sentinel.RegisterRoutes(ctx, r, cdc, keeper)
 	tx.RegisterRoutes(ctx, r, cdc)
 	auth.RegisterRoutes(ctx, r, cdc, "acc")
 	bank.RegisterRoutes(ctx, r, cdc, kb)
