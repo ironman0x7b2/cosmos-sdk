@@ -11,12 +11,14 @@ build
 tools/bin/*
 examples/build/*
 docs/_build
+Gopkg.lock
 
 # Data - ideally these don't exist
 examples/basecoin/app/data
 baseapp/data/*
 client/lcd/keys/*
 mytestnet
+CHANGELOG.md
 
 # Testing
 coverage.txt
