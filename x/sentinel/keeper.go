@@ -219,7 +219,7 @@ func (keeper Keeper) GetVpnPayment(ctx sdk.Context, msg MsgGetVpnPayment) ([]byt
 				if err != nil {
 					return nil, nil, sdk.NewInt(0), sdk.ErrInternal("Refund failed")
 				}
-				return clientAddr, sentKey, clientSessionData.TotalLockedCoins.AmountOf("sentinel"), nil
+				return clientAddr, sentKey, clientSessionData.TotalLockedCoins.AmountOf("SUT"), nil
 			}
 			bz, err := keeper.cdc.MarshalBinary(clientSessionData)
 			if err != nil {
