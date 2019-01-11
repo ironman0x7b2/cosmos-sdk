@@ -110,12 +110,15 @@ func handleMsgPayVpnService(ctx sdk.Context, keeper Keeper, msg MsgPayVpnService
 
 func handleMsgGetVpnPayment(ctx sdk.Context, keeper Keeper, msg MsgGetVpnPayment) sdk.Result {
 
-	sessionid, clientAddr, err := keeper.GetVpnPayment(ctx, msg)
+	sessionid, clientAddr, toataLockedCoins, err := keeper.GetVpnPayment(ctx, msg)
 	if err != nil {
 		return err.Result()
 	}
 	d, _ := keeper.cdc.MarshalJSON(msg)
-	tags := sdk.NewTags("Vpn Provider Address:", []byte(msg.From.String())).AppendTag("seesionId", sessionid).AppendTag("Client Address", []byte(clientAddr.String()))
+	tags := sdk.NewTags("Vpn Provider Address:", []byte(msg.From.String())).
+		AppendTag("seesionId", sessionid).
+		AppendTag("Client Address", []byte(clientAddr.String())).
+		AppendTag("Total Locked coins", []byte(toataLockedCoins.String()))
 	return sdk.Result{
 		Data: d,
 		Tags: tags,
