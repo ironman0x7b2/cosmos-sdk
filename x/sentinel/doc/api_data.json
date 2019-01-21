@@ -63,7 +63,7 @@
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -168,13 +168,13 @@
       "examples": [
         {
           "title": "Response:",
-          "content": "{\n   \"Success\": true,\n   \"Hash\": \"629F4603A5A4DE598B58DC494CCC38DB9FD96604\",\n   \"Height\": 353,\n   \"Data\":\"eyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YWx1ZSI6eyJGc3BlZWQiOiIxMiIsIlBwZ2IiOiyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YW9==\",\n   \"Tags\": [\n       {\n           \"key\": \"VnBuIFByb3ZpZGVyIEFkZHJlc3M6\",\n           \"value\": \"Y29zbW9zYWNjYWRkcjF1ZG50Z3pzemVzbjd6M3htNjRoYWZ2amxlZ3JoMzh1a3p3OW03Zw==\"\n       },\n       {\n           \"key\": \"c2Vlc2lvbklk\",\n           \"value\": \"WVZJRW81Y0dIczdkb09UVzRDTk4=\"\n       }\n   ]\n}",
+          "content": "{\n   \"Success\": true,\n   \"Hash\": \"629F4603A5A4DE598B58DC494CCC38DB9FD96604\",\n   \"Height\": 353,\n   \"Data\":\"eyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YWx1ZSI6eyJGc3BlZWQiOiIxMiIsIlBwZ2IiOiyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YW9==\",\n   \"Tags\": [\n       {\n           \"key\": \"VnBuIFByb3ZpZGVyIEFkZHJlc3M6\",\n           \"value\": \"Y29zbW9zYWNjYWRkcjF1ZG50Z3pzemVzbjd6M3htNjRoYWZ2amxlZ3JoMzh1a3p3OW03Zw==\"\n       },\n       {\n           \"key\": \"c2Vlc2lvbklk\",\n           \"value\": \"WVZJRW81Y0dIczdkb09UVzRDTk4=\"\n       },\n       {\n           \"key\": \"VG90YWwgTG9ja2VkIGNvaW5z\",\n           \"value\": \"MTAw\"\n       }\n   ]\n}",
           "type": "json"
         }
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -257,7 +257,7 @@
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -329,7 +329,7 @@
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -401,7 +401,7 @@
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -477,7 +477,7 @@
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -496,7 +496,7 @@
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -515,7 +515,7 @@
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/query.go",
+    "filename": "rest/query.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -615,7 +615,7 @@
         },
         {
           "title": "InsufficientFunds-Response:",
-          "content": "{\n\"Funds must be Greaterthan 0\"\n}",
+          "content": "{\n\"Insufficient Funds\"\n}",
           "type": "json"
         }
       ]
@@ -624,13 +624,13 @@
       "examples": [
         {
           "title": "Response:",
-          "content": "{\n  \"Success\": true,\n  \"Hash\": \"D2C58CAFC580CC39A4CFAB4325991A9378AFE77D\",\n  \"Height\": 1196,\n  \"Data\": \"IjNwWGdHazB5MnBGceyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YWx1ZSI6eyJGc3BlZWQiOiIxMiIsIlBwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19TdZdWIwak5xIg==\",\n  \"Tags\": [\n     {\n      \"key\": \"c2VuZGVyIGFkZHJlc3M=\",\n      \"value\": \"Y29zbW9zYWNjYWRkcjFuY3hlbGpjcjRnOWhzdmw3amRuempkazNyNzYyamUzenk4bXU5MA==\"\n     },\n    {\n     \"key\": \"c2Vlc2lvbiBpZA==\",\n     \"value\": \"M3BYZ0drMHkycEZxN1l1YjBqTnE=\"\n    }\n         ]\n}",
+          "content": "{\n  \"Success\": true,\n  \"Hash\": \"D2C58CAFC580CC39A4CFAB4325991A9378AFE77D\",\n  \"Height\": 1196,\n  \"Data\": \"IjNwWGdHazB5MnBGceyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YWx1ZSI6eyJGc3BlZWQiOiIxMiIsIlBwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19TdZdWIwak5xIg==\",\n  \"Tags\": [\n     {\n           \"key\": \"c2VuZGVyIGFkZHJlc3M=\",\n          \"value\": \"Y29zbW9zYWNjYWRkcjE2cG1qd2dxZXBoeHJ0ZjUyZXc3eXcwdXdjNXk1MHdwa2h6NTB0OQ==\"\n       },\n      {\n           \"key\": \"c2Vlc2lvbiBpZA==\",\n           \"value\": \"YmRiZDk3NTU0OTZlZDhhZDVlNDE=\"\n       },\n       {\n           \"key\": \"VG90YWwgTG9ja2VkIGNvaW5z\",\n           \"value\": \"MTAw\"\n       }\n\n         ]\n}",
           "type": "json"
         }
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -695,7 +695,7 @@
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -870,7 +870,7 @@
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
   },
   {
@@ -930,35 +930,7 @@
       ]
     },
     "version": "0.0.0",
-    "filename": "sentinel/rest/service.go",
+    "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
-  },
-  {
-    "success": {
-      "fields": {
-        "Success 200": [
-          {
-            "group": "Success 200",
-            "optional": false,
-            "field": "varname1",
-            "description": "<p>No type.</p>"
-          },
-          {
-            "group": "Success 200",
-            "type": "String",
-            "optional": false,
-            "field": "varname2",
-            "description": "<p>With type.</p>"
-          }
-        ]
-      }
-    },
-    "type": "",
-    "url": "",
-    "version": "0.0.0",
-    "filename": "sentinel/doc/main.js",
-    "group": "_home_bitsndbyts_go_src_github_com_cosmos_cosmos_sdk_x_sentinel_doc_main_js",
-    "groupTitle": "_home_bitsndbyts_go_src_github_com_cosmos_cosmos_sdk_x_sentinel_doc_main_js",
-    "name": ""
   }
 ]

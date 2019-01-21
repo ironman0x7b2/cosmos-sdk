@@ -94,41 +94,41 @@ func (keeper Keeper) DeleteMasterNode(ctx sdk.Context, msg MsgDeleteMasterNode) 
 	return msg.Maddr, nil
 }
 
-func (keeper Keeper) PayVpnService(ctx sdk.Context, msg MsgPayVpnService) (string, sdk.Error) {
+func (keeper Keeper) PayVpnService(ctx sdk.Context, msg MsgPayVpnService) (string, sdk.Int, sdk.Error) {
 
 	var err error
 	hash := md5.New()
 	sequence, err := keeper.account.GetSequence(ctx, msg.From)
 	if err != nil {
-		return "", sdk.ErrInvalidSequence("Invalid sequence")
+		return "", sdk.NewInt(0), sdk.ErrInvalidSequence("Invalid sequence")
 	}
 	addressbytes := []byte(msg.From.String() + "" + strconv.Itoa(int(sequence)))
 	hash.Write(addressbytes)
 	if err != nil {
-		return "", ErrBech32Decode("address hash is failed")
+		return "", sdk.NewInt(0), ErrBech32Decode("address hash is failed")
 	}
 	sentKey := hex.EncodeToString(hash.Sum(nil))[:20]
 	vpnpub, err := keeper.account.GetPubKey(ctx, msg.Vpnaddr)
 	if err != nil {
-		return "", ErrInvalidPubKey("Vpn pubkey failed")
+		return "", sdk.NewInt(0), ErrInvalidPubKey("Vpn pubkey failed")
 	}
 	time := ctx.BlockHeader().Time
 	session := senttype.GetNewSessionMap(msg.Coins, vpnpub, msg.Pubkey, msg.From, time)
 	store := ctx.KVStore(keeper.sentStoreKey)
 	data := store.Get([]byte(msg.Vpnaddr))
 	if data == nil {
-		return "", sdk.ErrUnknownAddress("VPN address is not registered")
+		return "", sdk.NewInt(0), sdk.ErrUnknownAddress("VPN address is not registered")
 	}
 	bz, err := keeper.cdc.MarshalBinary(session)
 	if err != nil {
-		return "", ErrMarshal("Marshal of session struct is failed")
+		return "", sdk.NewInt(0), ErrMarshal("Marshal of session struct is failed")
 	}
 	_, _, err = keeper.coinKeeper.SubtractCoins(ctx, msg.From, msg.Coins)
 	if err != nil {
-		return "", sdk.ErrInsufficientCoins("Coins Parse failed or insufficient funds")
+		return "", sdk.NewInt(0), sdk.ErrInsufficientCoins("Coins Parse failed or insufficient funds")
 	}
 	store.Set([]byte(sentKey), bz)
-	return string(sentKey[:]), nil
+	return string(sentKey[:]), msg.Coins.AmountOf("sut"), nil
 }
 func (keeper Keeper) RefundBal(ctx sdk.Context, msg MsgRefund) (sdk.AccAddress, sdk.Error) {
 

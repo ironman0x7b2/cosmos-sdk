@@ -96,18 +96,19 @@ func handleMsgDeleteMasterNode(ctx sdk.Context, keeper Keeper, msg MsgDeleteMast
 }
 
 func handleMsgPayVpnService(ctx sdk.Context, keeper Keeper, msg MsgPayVpnService) sdk.Result {
-	id, err := keeper.PayVpnService(ctx, msg)
+	id, toataLockedCoins, err := keeper.PayVpnService(ctx, msg)
 	if err != nil {
 		return err.Result()
 	}
 	d, _ := keeper.cdc.MarshalJSON(msg)
-	tag := sdk.NewTags("sender address", []byte(msg.From.String())).AppendTag("seesion id", []byte(id))
+	tag := sdk.NewTags("sender address", []byte(msg.From.String())).
+		AppendTag("seesion id", []byte(id)).
+		AppendTag("Total Locked coins", []byte(toataLockedCoins.String()))
 	return sdk.Result{
 		Data: d,
 		Tags: tag,
 	}
 }
-
 func handleMsgGetVpnPayment(ctx sdk.Context, keeper Keeper, msg MsgGetVpnPayment) sdk.Result {
 
 	sessionid, clientAddr, toataLockedCoins, err := keeper.GetVpnPayment(ctx, msg)
