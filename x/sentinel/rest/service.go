@@ -572,13 +572,18 @@ func validateIp(host string) bool {
 *   "Data": "IjNwWGdHazB5MnBGceyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YWx1ZSI6eyJGc3BlZWQiOiIxMiIsIlBwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19TdZdWIwak5xIg==",
 *   "Tags": [
 *      {
-*       "key": "c2VuZGVyIGFkZHJlc3M=",
-*       "value": "Y29zbW9zYWNjYWRkcjFuY3hlbGpjcjRnOWhzdmw3amRuempkazNyNzYyamUzenk4bXU5MA=="
-*      },
-*     {
-*      "key": "c2Vlc2lvbiBpZA==",
-*      "value": "M3BYZ0drMHkycEZxN1l1YjBqTnE="
-*     }
+*            "key": "c2VuZGVyIGFkZHJlc3M=",
+*           "value": "Y29zbW9zYWNjYWRkcjE2cG1qd2dxZXBoeHJ0ZjUyZXc3eXcwdXdjNXk1MHdwa2h6NTB0OQ=="
+*        },
+*       {
+*            "key": "c2Vlc2lvbiBpZA==",
+*            "value": "YmRiZDk3NTU0OTZlZDhhZDVlNDE="
+*        },
+*        {
+*            "key": "VG90YWwgTG9ja2VkIGNvaW5z",
+*            "value": "MTAw"
+*        }
+*
 *          ]
 }
 */
@@ -903,6 +908,10 @@ func RefundHandleFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
 *        {
 *            "key": "c2Vlc2lvbklk",
 *            "value": "WVZJRW81Y0dIczdkb09UVzRDTk4="
+*        },
+*        {
+*            "key": "VG90YWwgTG9ja2VkIGNvaW5z",
+*            "value": "MTAw"
 *        }
 *    ]
 *}
