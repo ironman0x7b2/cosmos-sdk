@@ -130,46 +130,46 @@ func (keeper Keeper) PayVpnService(ctx sdk.Context, msg MsgPayVpnService) (strin
 	store.Set([]byte(sentKey), bz)
 	return string(sentKey[:]), msg.Coins.AmountOf("sut"), nil
 }
-func (keeper Keeper) RefundBal(ctx sdk.Context, msg MsgRefund) (sdk.AccAddress, sdk.Error) {
+func (keeper Keeper) RefundBal(ctx sdk.Context, msg MsgRefund) (sdk.AccAddress, sdk.Int, sdk.Error) {
 
 	var err error
 	var clientSession senttype.Session
 	store := ctx.KVStore(keeper.sentStoreKey)
 	x := store.Get([]byte(msg.Sessionid))
 	if x == nil {
-		return nil, ErrInvalidSessionid("Invalid SessionId")
+		return nil, sdk.NewInt(0), ErrInvalidSessionid("Invalid SessionId")
 	}
 	err = keeper.cdc.UnmarshalBinary(x, &clientSession)
 	if err != nil {
-		return nil, ErrUnMarshal("UnMarshal of bytes failed")
+		return nil, sdk.NewInt(0), ErrUnMarshal("UnMarshal of bytes failed")
 
 	}
 	caddr := sdk.AccAddress(clientSession.CAddress)
 	if msg.From.String() != caddr.String() {
-		return nil, sdk.ErrUnknownAddress("Address is not associated with this Session")
+		return nil, sdk.NewInt(0), sdk.ErrUnknownAddress("Address is not associated with this Session")
 	}
 	ctime := ctx.BlockHeader().Time
 	if clientSession.Status == 0 {
 		_, _, err = keeper.coinKeeper.AddCoins(ctx, msg.From, clientSession.TotalLockedCoins.Minus(clientSession.ReleasedCoins))
 		if err != nil {
-			return nil, sdk.ErrInsufficientCoins("Insufficient funds")
+			return nil, sdk.NewInt(0), sdk.ErrInsufficientCoins("Insufficient funds")
 		}
 		store.Delete(msg.Sessionid)
-		return msg.From, nil
+		return msg.From, clientSession.TotalLockedCoins.Minus(clientSession.ReleasedCoins).AmountOf("sut"), nil
 	}
 	if clientSession.Status == 1 {
 		time := int64(math.Abs(float64(ctime))) - clientSession.Timestamp
 		if time >= 86400 && clientSession.TotalLockedCoins.Minus(clientSession.ReleasedCoins).IsPositive() && !clientSession.TotalLockedCoins.Minus(clientSession.ReleasedCoins).IsZero() {
 			_, _, err = keeper.coinKeeper.AddCoins(ctx, msg.From, clientSession.TotalLockedCoins.Minus(clientSession.ReleasedCoins))
 			if err != nil {
-				return nil, sdk.ErrInsufficientCoins("Insufficient funds")
+				return nil, sdk.NewInt(0), sdk.ErrInsufficientCoins("Insufficient funds")
 			}
 			store.Delete(msg.Sessionid)
-			return msg.From, nil
+			return msg.From, clientSession.TotalLockedCoins.Minus(clientSession.ReleasedCoins).AmountOf("sut"), nil
 		}
-		return nil, ErrTimeInterval("time is less than 24 hours  or the balance is negative or equal to zero")
+		return nil, sdk.NewInt(0), ErrTimeInterval("time is less than 24 hours  or the balance is negative or equal to zero")
 	}
-	return nil, ErrInvalidSessionid("Invalid SessionId")
+	return nil, sdk.NewInt(0), ErrInvalidSessionid("Invalid SessionId")
 
 }
 func (keeper Keeper) GetVpnPayment(ctx sdk.Context, msg MsgGetVpnPayment) ([]byte, sdk.AccAddress, sdk.Int, sdk.Error) {
@@ -205,33 +205,24 @@ func (keeper Keeper) GetVpnPayment(ctx sdk.Context, msg MsgGetVpnPayment) ([]byt
 
 			if clientSessionData.TotalLockedCoins.Minus(clientSessionData.ReleasedCoins).IsZero() && !clientSessionData.TotalLockedCoins.Minus(clientSessionData.ReleasedCoins).IsPositive() || clientSessionData.Status == 0 {
 				store.Delete(sentKey)
-				return nil, sentKey, sdk.NewInt(0), sdk.ErrInsufficientCoins("Insufficient funds")
+				return nil, nil, sdk.NewInt(0), sdk.ErrInsufficientCoins("Insufficient funds")
 			}
 
-			if msg.IsFinal == true {
-				clientSessionData.Status = 0
-				bz, err := keeper.cdc.MarshalBinary(clientSessionData)
-				if err != nil {
-					return nil, nil, sdk.NewInt(0), ErrUnMarshal("Unmarshal of bytes failed")
-				}
-				store.Set(sentKey, bz)
-				clientAddr, err := keeper.RefundBal(ctx, MsgRefund{From: clientSessionData.CAddress, Sessionid: msg.Sessionid})
-				if err != nil {
-					return nil, nil, sdk.NewInt(0), sdk.ErrInternal("Refund failed")
-				}
-				return clientAddr, sentKey, clientSessionData.TotalLockedCoins.AmountOf("sut"), nil
-			}
+			clientSessionData.Status = 0
 			bz, err := keeper.cdc.MarshalBinary(clientSessionData)
 			if err != nil {
 				return nil, nil, sdk.NewInt(0), ErrUnMarshal("Unmarshal of bytes failed")
 			}
 			store.Set(sentKey, bz)
-
-			return nil, sentKey, clientSessionData.TotalLockedCoins.AmountOf("sut"), nil
+			clientAddr, _, err := keeper.RefundBal(ctx, MsgRefund{From: clientSessionData.CAddress, Sessionid: msg.Sessionid})
+			if err != nil {
+				return nil, nil, sdk.NewInt(0), sdk.ErrInternal("Refund failed")
+			}
+			return sentKey, clientAddr, clientSessionData.TotalLockedCoins.AmountOf("sut"), nil
 		}
-		return nil, msg.Sessionid, sdk.NewInt(0), sdk.ErrInsufficientCoins("Insufficient Coins ")
+		return nil, nil, sdk.NewInt(0), sdk.ErrInsufficientCoins("Insufficient Coins ")
 	}
-	return nil, msg.Sessionid, sdk.NewInt(0), ErrSignMsg("Invalid Counter")
+	return nil, nil, sdk.NewInt(0), ErrSignMsg("Invalid Counter")
 }
 func (keeper Keeper) NewMsgDecoder(acc []byte) (senttype.Registervpn, sdk.Error) {
 

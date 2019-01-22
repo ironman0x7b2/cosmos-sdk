@@ -127,12 +127,13 @@ func handleMsgGetVpnPayment(ctx sdk.Context, keeper Keeper, msg MsgGetVpnPayment
 }
 
 func handleMsgRefund(ctx sdk.Context, keeper Keeper, msg MsgRefund) sdk.Result {
-	address, err := keeper.RefundBal(ctx, msg)
+	address, refundedBal, err := keeper.RefundBal(ctx, msg)
 	if err != nil {
 		return err.Result()
 	}
 	d, _ := keeper.cdc.MarshalJSON(msg)
-	tags := sdk.NewTags("client Refund Address:", []byte(address.String()))
+	tags := sdk.NewTags("client Refund Address:", []byte(address.String())).
+		AppendTag("Refunded balance", []byte(refundedBal.String()))
 	return sdk.Result{
 		Data: d,
 		Tags: tags,
