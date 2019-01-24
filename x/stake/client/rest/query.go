@@ -1,265 +1,275 @@
 package rest
 
 import (
-	"fmt"
 	"net/http"
-
-	"github.com/gorilla/mux"
-
-	"github.com/cosmos/cosmos-sdk/client/context"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/wire"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/x/stake"
-	"github.com/cosmos/cosmos-sdk/x/stake/types"
+
+	"github.com/cosmos/cosmos-sdk/client/context"
+	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/client/utils"
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/stake/tags"
+
+	"github.com/gorilla/mux"
 )
 
 const storeName = "stake"
 
-func registerQueryRoutes(ctx context.CoreContext, r *mux.Router, cdc *wire.Codec) {
+func registerQueryRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec) {
 
+	// Get all delegations from a delegator
 	r.HandleFunc(
-		"/stake/{delegator}/delegation/{validator}",
-		delegationHandlerFn(ctx, cdc),
+		"/stake/delegators/{delegatorAddr}/delegations",
+		delegatorDelegationsHandlerFn(cliCtx, cdc),
 	).Methods("GET")
 
+	// Get all unbonding delegations from a delegator
 	r.HandleFunc(
-		"/stake/{delegator}/ubd/{validator}",
-		ubdHandlerFn(ctx, cdc),
+		"/stake/delegators/{delegatorAddr}/unbonding_delegations",
+		delegatorUnbondingDelegationsHandlerFn(cliCtx, cdc),
 	).Methods("GET")
 
+	// Get all redelegations from a delegator
 	r.HandleFunc(
-		"/stake/{delegator}/red/{validator_src}/{validator_dst}",
-		redHandlerFn(ctx, cdc),
+		"/stake/delegators/{delegatorAddr}/redelegations",
+		delegatorRedelegationsHandlerFn(cliCtx, cdc),
 	).Methods("GET")
 
+	// Get all staking txs (i.e msgs) from a delegator
+	r.HandleFunc(
+		"/stake/delegators/{delegatorAddr}/txs",
+		delegatorTxsHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
+	// Query all validators that a delegator is bonded to
+	r.HandleFunc(
+		"/stake/delegators/{delegatorAddr}/validators",
+		delegatorValidatorsHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
+	// Query a validator that a delegator is bonded to
+	r.HandleFunc(
+		"/stake/delegators/{delegatorAddr}/validators/{validatorAddr}",
+		delegatorValidatorHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
+	// Query a delegation between a delegator and a validator
+	r.HandleFunc(
+		"/stake/delegators/{delegatorAddr}/delegations/{validatorAddr}",
+		delegationHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
+	// Query all unbonding delegations between a delegator and a validator
+	r.HandleFunc(
+		"/stake/delegators/{delegatorAddr}/unbonding_delegations/{validatorAddr}",
+		unbondingDelegationHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
+	// Get all validators
 	r.HandleFunc(
 		"/stake/validators",
-		validatorsHandlerFn(ctx, cdc),
+		validatorsHandlerFn(cliCtx, cdc),
 	).Methods("GET")
+
+	// Get a single validator info
+	r.HandleFunc(
+		"/stake/validators/{validatorAddr}",
+		validatorHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
+	// Get all delegations to a validator
+	r.HandleFunc(
+		"/stake/validators/{validatorAddr}/delegations",
+		validatorDelegationsHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
+	// Get all unbonding delegations from a validator
+	r.HandleFunc(
+		"/stake/validators/{validatorAddr}/unbonding_delegations",
+		validatorUnbondingDelegationsHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
+	// Get all outgoing redelegations from a validator
+	r.HandleFunc(
+		"/stake/validators/{validatorAddr}/redelegations",
+		validatorRedelegationsHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
+	// Get the current state of the staking pool
+	r.HandleFunc(
+		"/stake/pool",
+		poolHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
+	// Get the current staking parameter values
+	r.HandleFunc(
+		"/stake/parameters",
+		paramsHandlerFn(cliCtx, cdc),
+	).Methods("GET")
+
 }
 
-// http request handler to query a delegation
-func delegationHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+// HTTP request handler to query a delegator delegations
+func delegatorDelegationsHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryDelegator(cliCtx, cdc, "custom/stake/delegatorDelegations")
+}
 
-		// read parameters
+// HTTP request handler to query a delegator unbonding delegations
+func delegatorUnbondingDelegationsHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryDelegator(cliCtx, cdc, "custom/stake/delegatorUnbondingDelegations")
+}
+
+// HTTP request handler to query a delegator redelegations
+func delegatorRedelegationsHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryDelegator(cliCtx, cdc, "custom/stake/delegatorRedelegations")
+}
+
+// HTTP request handler to query all staking txs (msgs) from a delegator
+func delegatorTxsHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var typesQuerySlice []string
 		vars := mux.Vars(r)
-		bech32delegator := vars["delegator"]
-		bech32validator := vars["validator"]
+		delegatorAddr := vars["delegatorAddr"]
 
-		delegatorAddr, err := sdk.AccAddressFromBech32(bech32delegator)
+		_, err := sdk.AccAddressFromBech32(delegatorAddr)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
+			utils.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		validatorAddr, err := sdk.AccAddressFromBech32(bech32validator)
+		node, err := cliCtx.GetNode()
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		key := stake.GetDelegationKey(delegatorAddr, validatorAddr)
+		// Get values from query
 
-		res, err := ctx.QueryStore(key, storeName)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("couldn't query delegation. Error: %s", err.Error())))
-			return
+		typesQuery := r.URL.Query().Get("type")
+		trimmedQuery := strings.TrimSpace(typesQuery)
+		if len(trimmedQuery) != 0 {
+			typesQuerySlice = strings.Split(trimmedQuery, " ")
 		}
 
-		// the query will return empty if there is no data for this record
-		if len(res) == 0 {
+		noQuery := len(typesQuerySlice) == 0
+		isBondTx := contains(typesQuerySlice, "bond")
+		isUnbondTx := contains(typesQuerySlice, "unbond")
+		isRedTx := contains(typesQuerySlice, "redelegate")
+		var txs = []tx.Info{}
+		var actions []string
+
+		switch {
+		case isBondTx:
+			actions = append(actions, stake.MsgDelegate{}.Type())
+		case isUnbondTx:
+			actions = append(actions, stake.MsgBeginUnbonding{}.Type())
+			actions = append(actions, string(tags.ActionCompleteUnbonding))
+		case isRedTx:
+			actions = append(actions, stake.MsgBeginRedelegate{}.Type())
+			actions = append(actions, string(tags.ActionCompleteRedelegation))
+		case noQuery:
+			actions = append(actions, stake.MsgDelegate{}.Type())
+			actions = append(actions, stake.MsgBeginUnbonding{}.Type())
+			actions = append(actions, string(tags.ActionCompleteUnbonding))
+			actions = append(actions, stake.MsgBeginRedelegate{}.Type())
+			actions = append(actions, string(tags.ActionCompleteRedelegation))
+		default:
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
-		delegation, err := types.UnmarshalDelegation(cdc, key, res)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		output, err := cdc.MarshalJSON(delegation)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		w.Write(output)
-	}
-}
-
-// http request handler to query an unbonding-delegation
-func ubdHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-		// read parameters
-		vars := mux.Vars(r)
-		bech32delegator := vars["delegator"]
-		bech32validator := vars["validator"]
-
-		delegatorAddr, err := sdk.AccAddressFromBech32(bech32delegator)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		validatorAddr, err := sdk.AccAddressFromBech32(bech32validator)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		key := stake.GetUBDKey(delegatorAddr, validatorAddr)
-
-		res, err := ctx.QueryStore(key, storeName)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("couldn't query unbonding-delegation. Error: %s", err.Error())))
-			return
-		}
-
-		// the query will return empty if there is no data for this record
-		if len(res) == 0 {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		ubd, err := types.UnmarshalUBD(cdc, key, res)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("couldn't query unbonding-delegation. Error: %s", err.Error())))
-			return
-		}
-
-		output, err := cdc.MarshalJSON(ubd)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		w.Write(output)
-	}
-}
-
-// http request handler to query an redelegation
-func redHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-		// read parameters
-		vars := mux.Vars(r)
-		bech32delegator := vars["delegator"]
-		bech32validatorSrc := vars["validator_src"]
-		bech32validatorDst := vars["validator_dst"]
-
-		delegatorAddr, err := sdk.AccAddressFromBech32(bech32delegator)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		validatorSrcAddr, err := sdk.AccAddressFromBech32(bech32validatorSrc)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		validatorDstAddr, err := sdk.AccAddressFromBech32(bech32validatorDst)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		key := stake.GetREDKey(delegatorAddr, validatorSrcAddr, validatorDstAddr)
-
-		res, err := ctx.QueryStore(key, storeName)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("couldn't query redelegation. Error: %s", err.Error())))
-			return
-		}
-
-		// the query will return empty if there is no data for this record
-		if len(res) == 0 {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		red, err := types.UnmarshalRED(cdc, key, res)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("couldn't query unbonding-delegation. Error: %s", err.Error())))
-			return
-		}
-
-		output, err := cdc.MarshalJSON(red)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		w.Write(output)
-	}
-}
-
-// TODO bech32
-// http request handler to query list of validators
-func validatorsHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		kvs, err := ctx.QuerySubspace(cdc, stake.ValidatorsKey, storeName)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("couldn't query validators. Error: %s", err.Error())))
-			return
-		}
-
-		// the query will return empty if there are no validators
-		if len(kvs) == 0 {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		// parse out the validators
-		validators := make([]types.BechValidator, len(kvs))
-		for i, kv := range kvs {
-
-			addr := kv.Key[1:]
-			validator, err := types.UnmarshalValidator(cdc, addr, kv.Value)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(fmt.Sprintf("couldn't query unbonding-delegation. Error: %s", err.Error())))
-				return
+		for _, action := range actions {
+			foundTxs, errQuery := queryTxs(node, cliCtx, cdc, action, delegatorAddr)
+			if errQuery != nil {
+				utils.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
 			}
-
-			bech32Validator, err := validator.Bech32Validator()
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(err.Error()))
-				return
-			}
-			validators[i] = bech32Validator
+			txs = append(txs, foundTxs...)
 		}
 
-		output, err := cdc.MarshalJSON(validators)
+		res, err := cdc.MarshalJSON(txs)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		utils.PostProcessResponse(w, cdc, res, cliCtx.Indent)
+	}
+}
 
-		w.Write(output)
+// HTTP request handler to query an unbonding-delegation
+func unbondingDelegationHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryBonds(cliCtx, cdc, "custom/stake/unbondingDelegation")
+}
+
+// HTTP request handler to query a delegation
+func delegationHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryBonds(cliCtx, cdc, "custom/stake/delegation")
+}
+
+// HTTP request handler to query all delegator bonded validators
+func delegatorValidatorsHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryDelegator(cliCtx, cdc, "custom/stake/delegatorValidators")
+}
+
+// HTTP request handler to get information from a currently bonded validator
+func delegatorValidatorHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryBonds(cliCtx, cdc, "custom/stake/delegatorValidator")
+}
+
+// HTTP request handler to query list of validators
+func validatorsHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		res, err := cliCtx.QueryWithData("custom/stake/validators", nil)
+		if err != nil {
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		utils.PostProcessResponse(w, cdc, res, cliCtx.Indent)
+	}
+}
+
+// HTTP request handler to query the validator information from a given validator address
+func validatorHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryValidator(cliCtx, cdc, "custom/stake/validator")
+}
+
+// HTTP request handler to query all unbonding delegations from a validator
+func validatorDelegationsHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryValidator(cliCtx, cdc, "custom/stake/validatorDelegations")
+}
+
+// HTTP request handler to query all unbonding delegations from a validator
+func validatorUnbondingDelegationsHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryValidator(cliCtx, cdc, "custom/stake/validatorUnbondingDelegations")
+}
+
+// HTTP request handler to query all redelegations from a source validator
+func validatorRedelegationsHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return queryValidator(cliCtx, cdc, "custom/stake/validatorRedelegations")
+}
+
+// HTTP request handler to query the pool information
+func poolHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		res, err := cliCtx.QueryWithData("custom/stake/pool", nil)
+		if err != nil {
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		utils.PostProcessResponse(w, cdc, res, cliCtx.Indent)
+	}
+}
+
+// HTTP request handler to query the staking params values
+func paramsHandlerFn(cliCtx context.CLIContext, cdc *codec.Codec) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		res, err := cliCtx.QueryWithData("custom/stake/parameters", nil)
+		if err != nil {
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		utils.PostProcessResponse(w, cdc, res, cliCtx.Indent)
 	}
 }

@@ -2,297 +2,301 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+
+	"github.com/pkg/errors"
+
+	"github.com/cosmos/cosmos-sdk/client/context"
+	"github.com/cosmos/cosmos-sdk/client/utils"
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtxb "github.com/cosmos/cosmos-sdk/x/auth/client/txbuilder"
+	"github.com/cosmos/cosmos-sdk/x/gov"
+
+	"encoding/json"
+	"io/ioutil"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/cosmos/cosmos-sdk/client/context"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/wire"
-	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
-	"github.com/cosmos/cosmos-sdk/x/gov"
-	"github.com/pkg/errors"
+	govClientUtils "github.com/cosmos/cosmos-sdk/x/gov/client/utils"
 )
 
 const (
-	flagProposalID   = "proposalID"
 	flagTitle        = "title"
 	flagDescription  = "description"
 	flagProposalType = "type"
 	flagDeposit      = "deposit"
-	flagProposer     = "proposer"
-	flagDepositer    = "depositer"
 	flagVoter        = "voter"
 	flagOption       = "option"
+	flagDepositor    = "depositor"
+	flagStatus       = "status"
+	flagNumLimit     = "limit"
+	flagProposal     = "proposal"
 )
 
-// submit a proposal tx
-func GetCmdSubmitProposal(cdc *wire.Codec) *cobra.Command {
+type proposal struct {
+	Title       string
+	Description string
+	Type        string
+	Deposit     string
+}
+
+var proposalFlags = []string{
+	flagTitle,
+	flagDescription,
+	flagProposalType,
+	flagDeposit,
+}
+
+// GetCmdSubmitProposal implements submitting a proposal transaction command.
+func GetCmdSubmitProposal(cdc *codec.Codec) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "submit-proposal",
 		Short: "Submit a proposal along with an initial deposit",
+		Long: strings.TrimSpace(`
+Submit a proposal along with an initial deposit. Proposal title, description, type and deposit can be given directly or through a proposal JSON file. For example:
+
+$ gaiacli gov submit-proposal --proposal="path/to/proposal.json" --from mykey
+
+where proposal.json contains:
+
+{
+  "title": "Test Proposal",
+  "description": "My awesome proposal",
+  "type": "Text",
+  "deposit": "10test"
+}
+
+is equivalent to
+
+$ gaiacli gov submit-proposal --title="Test Proposal" --description="My awesome proposal" --type="Text" --deposit="10test" --from mykey
+`),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			title := viper.GetString(flagTitle)
-			description := viper.GetString(flagDescription)
-			strProposalType := viper.GetString(flagProposalType)
-			initialDeposit := viper.GetString(flagDeposit)
-
-			// get the from address from the name flag
-			from, err := sdk.AccAddressFromBech32(viper.GetString(flagProposer))
+			proposal, err := parseSubmitProposalFlags()
 			if err != nil {
 				return err
 			}
 
-			amount, err := sdk.ParseCoins(initialDeposit)
+			txBldr := authtxb.NewTxBuilderFromCLI().WithTxEncoder(utils.GetTxEncoder(cdc))
+			cliCtx := context.NewCLIContext().
+				WithCodec(cdc).
+				WithAccountDecoder(cdc)
+
+			// Get from address
+			from, err := cliCtx.GetFromAddress()
 			if err != nil {
 				return err
 			}
 
-			proposalType, err := gov.ProposalTypeFromString(strProposalType)
+			// Pull associated account
+			account, err := cliCtx.GetAccount(from)
 			if err != nil {
 				return err
 			}
 
-			// create the message
-			msg := gov.NewMsgSubmitProposal(title, description, proposalType, from, amount)
+			// Find deposit amount
+			amount, err := sdk.ParseCoins(proposal.Deposit)
+			if err != nil {
+				return err
+			}
 
+			// ensure account has enough coins
+			if !account.GetCoins().IsAllGTE(amount) {
+				return errors.Errorf("Address %s doesn't have enough coins to pay for this transaction.", from)
+			}
+
+			proposalType, err := gov.ProposalTypeFromString(proposal.Type)
+			if err != nil {
+				return err
+			}
+
+			msg := gov.NewMsgSubmitProposal(proposal.Title, proposal.Description, proposalType, from, amount)
 			err = msg.ValidateBasic()
 			if err != nil {
 				return err
 			}
 
-			// build and sign the transaction, then broadcast to Tendermint
-			ctx := context.NewCoreContextFromViper().WithDecoder(authcmd.GetAccountDecoder(cdc))
-			// proposalID must be returned, and it is a part of response
-			ctx.PrintResponse = true
-
-			err = ctx.EnsureSignBuildBroadcast(ctx.FromAddressName, []sdk.Msg{msg}, cdc)
-			if err != nil {
-				return err
+			if cliCtx.GenerateOnly {
+				return utils.PrintUnsignedStdTx(os.Stdout, txBldr, cliCtx, []sdk.Msg{msg}, false)
 			}
-			return nil
+
+			// Build and sign the transaction, then broadcast to Tendermint
+			// proposalID must be returned, and it is a part of response.
+			cliCtx.PrintResponse = true
+			return utils.CompleteAndBroadcastTxCli(txBldr, cliCtx, []sdk.Msg{msg})
 		},
 	}
 
 	cmd.Flags().String(flagTitle, "", "title of proposal")
 	cmd.Flags().String(flagDescription, "", "description of proposal")
-	cmd.Flags().String(flagProposalType, "", "proposalType of proposal")
+	cmd.Flags().String(flagProposalType, "", "proposalType of proposal, types: text/parameter_change/software_upgrade")
 	cmd.Flags().String(flagDeposit, "", "deposit of proposal")
-	cmd.Flags().String(flagProposer, "", "proposer of proposal")
+	cmd.Flags().String(flagProposal, "", "proposal file path (if this path is given, other proposal flags are ignored)")
 
 	return cmd
 }
 
-// set a new Deposit transaction
-func GetCmdDeposit(cdc *wire.Codec) *cobra.Command {
+func parseSubmitProposalFlags() (*proposal, error) {
+	proposal := &proposal{}
+	proposalFile := viper.GetString(flagProposal)
+
+	if proposalFile == "" {
+		proposal.Title = viper.GetString(flagTitle)
+		proposal.Description = viper.GetString(flagDescription)
+		proposal.Type = govClientUtils.NormalizeProposalType(viper.GetString(flagProposalType))
+		proposal.Deposit = viper.GetString(flagDeposit)
+		return proposal, nil
+	}
+
+	for _, flag := range proposalFlags {
+		if viper.GetString(flag) != "" {
+			return nil, fmt.Errorf("--%s flag provided alongside --proposal, which is a noop", flag)
+		}
+	}
+
+	contents, err := ioutil.ReadFile(proposalFile)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(contents, proposal)
+	if err != nil {
+		return nil, err
+	}
+
+	return proposal, nil
+}
+
+// GetCmdDeposit implements depositing tokens for an active proposal.
+func GetCmdDeposit(queryRoute string, cdc *codec.Codec) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deposit",
-		Short: "deposit tokens for activing proposal",
+		Use:   "deposit [proposal-id] [deposit]",
+		Args:  cobra.ExactArgs(2),
+		Short: "Deposit tokens for activing proposal",
+		Long: strings.TrimSpace(`
+Submit a deposit for an acive proposal. You can find the proposal-id by running gaiacli query gov proposals:
+
+$ gaiacli tx gov deposit 1 10STAKE --from mykey
+`),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// get the from address from the name flag
-			depositer, err := sdk.AccAddressFromBech32(viper.GetString(flagDepositer))
+			txBldr := authtxb.NewTxBuilderFromCLI().WithTxEncoder(utils.GetTxEncoder(cdc))
+			cliCtx := context.NewCLIContext().
+				WithCodec(cdc).
+				WithAccountDecoder(cdc)
+
+			// validate that the proposal id is a uint
+			proposalID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("proposal-id %s not a valid uint, please input a valid proposal-id", args[0])
+			}
+
+			// check to see if the proposal is in the store
+			_, err = queryProposal(proposalID, cliCtx, cdc, queryRoute)
+			if err != nil {
+				return fmt.Errorf("Failed to fetch proposal-id %d: %s", proposalID, err)
+			}
+
+			// Get from address
+			from, err := cliCtx.GetFromAddress()
 			if err != nil {
 				return err
 			}
 
-			proposalID := viper.GetInt64(flagProposalID)
-
-			amount, err := sdk.ParseCoins(viper.GetString(flagDeposit))
+			// Fetch associated account
+			account, err := cliCtx.GetAccount(from)
 			if err != nil {
 				return err
 			}
 
-			// create the message
-			msg := gov.NewMsgDeposit(depositer, proposalID, amount)
+			// Get amount of coins
+			amount, err := sdk.ParseCoins(args[1])
+			if err != nil {
+				return err
+			}
 
+			// ensure account has enough coins
+			if !account.GetCoins().IsAllGTE(amount) {
+				return errors.Errorf("Address %s doesn't have enough coins to pay for this transaction.", from)
+			}
+
+			msg := gov.NewMsgDeposit(from, proposalID, amount)
 			err = msg.ValidateBasic()
 			if err != nil {
 				return err
 			}
 
-			// build and sign the transaction, then broadcast to Tendermint
-			ctx := context.NewCoreContextFromViper().WithDecoder(authcmd.GetAccountDecoder(cdc))
-
-			err = ctx.EnsureSignBuildBroadcast(ctx.FromAddressName, []sdk.Msg{msg}, cdc)
-			if err != nil {
-				return err
+			if cliCtx.GenerateOnly {
+				return utils.PrintUnsignedStdTx(os.Stdout, txBldr, cliCtx, []sdk.Msg{msg}, false)
 			}
-			return nil
+
+			// Build and sign the transaction, then broadcast to a Tendermint node.
+			return utils.CompleteAndBroadcastTxCli(txBldr, cliCtx, []sdk.Msg{msg})
 		},
 	}
-
-	cmd.Flags().String(flagProposalID, "", "proposalID of proposal depositing on")
-	cmd.Flags().String(flagDepositer, "", "depositer of deposit")
-	cmd.Flags().String(flagDeposit, "", "amount of deposit")
 
 	return cmd
 }
 
-// set a new Vote transaction
-func GetCmdVote(cdc *wire.Codec) *cobra.Command {
+// GetCmdVote implements creating a new vote command.
+func GetCmdVote(queryRoute string, cdc *codec.Codec) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "vote",
-		Short: "vote for an active proposal, options: Yes/No/NoWithVeto/Abstain",
+		Use:   "vote [proposal-id] [option]",
+		Args:  cobra.ExactArgs(2),
+		Short: "Vote for an active proposal, options: yes/no/no_with_veto/abstain",
+		Long: strings.TrimSpace(`
+Submit a vote for an acive proposal. You can find the proposal-id by running gaiacli query gov proposals:
+
+$ gaiacli tx gov vote 1 yes --from mykey
+`),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			txBldr := authtxb.NewTxBuilderFromCLI().WithTxEncoder(utils.GetTxEncoder(cdc))
+			cliCtx := context.NewCLIContext().
+				WithCodec(cdc).
+				WithAccountDecoder(cdc)
 
-			bechVoter := viper.GetString(flagVoter)
-			voter, err := sdk.AccAddressFromBech32(bechVoter)
+			// Get voting address
+			from, err := cliCtx.GetFromAddress()
 			if err != nil {
 				return err
 			}
 
-			proposalID := viper.GetInt64(flagProposalID)
+			// validate that the proposal id is a uint
+			proposalID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("proposal-id %s not a valid int, please input a valid proposal-id", args[0])
+			}
 
-			option := viper.GetString(flagOption)
+			// check to see if the proposal is in the store
+			_, err = queryProposal(proposalID, cliCtx, cdc, queryRoute)
+			if err != nil {
+				return fmt.Errorf("Failed to fetch proposal-id %d: %s", proposalID, err)
+			}
 
-			byteVoteOption, err := gov.VoteOptionFromString(option)
+			// Find out which vote option user chose
+			byteVoteOption, err := gov.VoteOptionFromString(govClientUtils.NormalizeVoteOption(args[1]))
 			if err != nil {
 				return err
 			}
 
-			// create the message
-			msg := gov.NewMsgVote(voter, proposalID, byteVoteOption)
-
+			// Build vote message and run basic validation
+			msg := gov.NewMsgVote(from, proposalID, byteVoteOption)
 			err = msg.ValidateBasic()
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("Vote[Voter:%s,ProposalID:%d,Option:%s]", bechVoter, msg.ProposalID, msg.Option)
-
-			// build and sign the transaction, then broadcast to Tendermint
-			ctx := context.NewCoreContextFromViper().WithDecoder(authcmd.GetAccountDecoder(cdc))
-
-			err = ctx.EnsureSignBuildBroadcast(ctx.FromAddressName, []sdk.Msg{msg}, cdc)
-			if err != nil {
-				return err
+			// If generate only print the transaction
+			if cliCtx.GenerateOnly {
+				return utils.PrintUnsignedStdTx(os.Stdout, txBldr, cliCtx, []sdk.Msg{msg}, false)
 			}
-			return nil
+
+			// Build and sign the transaction, then broadcast to a Tendermint node.
+			return utils.CompleteAndBroadcastTxCli(txBldr, cliCtx, []sdk.Msg{msg})
 		},
 	}
-
-	cmd.Flags().String(flagProposalID, "", "proposalID of proposal voting on")
-	cmd.Flags().String(flagVoter, "", "bech32 voter address")
-	cmd.Flags().String(flagOption, "", "vote option {Yes, No, NoWithVeto, Abstain}")
-
-	return cmd
-}
-
-// Command to Get a Proposal Information
-func GetCmdQueryProposal(storeName string, cdc *wire.Codec) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "query-proposal",
-		Short: "query proposal details",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			proposalID := viper.GetInt64(flagProposalID)
-
-			ctx := context.NewCoreContextFromViper()
-
-			res, err := ctx.QueryStore(gov.KeyProposal(proposalID), storeName)
-			if len(res) == 0 || err != nil {
-				return errors.Errorf("proposalID [%d] is not existed", proposalID)
-			}
-
-			var proposal gov.Proposal
-			cdc.MustUnmarshalBinary(res, &proposal)
-			output, err := wire.MarshalJSONIndent(cdc, proposal)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(output))
-			return nil
-		},
-	}
-
-	cmd.Flags().String(flagProposalID, "", "proposalID of proposal being queried")
-
-	return cmd
-}
-
-// Command to Get a Proposal Information
-func GetCmdQueryVote(storeName string, cdc *wire.Codec) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "query-vote",
-		Short: "query vote",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			proposalID := viper.GetInt64(flagProposalID)
-
-			voterAddr, err := sdk.AccAddressFromBech32(viper.GetString(flagVoter))
-			if err != nil {
-				return err
-			}
-
-			ctx := context.NewCoreContextFromViper()
-
-			res, err := ctx.QueryStore(gov.KeyVote(proposalID, voterAddr), storeName)
-			if len(res) == 0 || err != nil {
-				return errors.Errorf("proposalID [%d] does not exist", proposalID)
-			}
-
-			var vote gov.Vote
-			cdc.MustUnmarshalBinary(res, &vote)
-			output, err := wire.MarshalJSONIndent(cdc, vote)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(output))
-			return nil
-		},
-	}
-
-	cmd.Flags().String(flagProposalID, "", "proposalID of proposal voting on")
-	cmd.Flags().String(flagVoter, "", "bech32 voter address")
-
-	return cmd
-}
-
-// Command to Get a Proposal Information
-func GetCmdQueryVotes(storeName string, cdc *wire.Codec) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "query-votes",
-		Short: "query votes on a proposal",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			proposalID := viper.GetInt64(flagProposalID)
-
-			ctx := context.NewCoreContextFromViper()
-
-			res, err := ctx.QueryStore(gov.KeyProposal(proposalID), storeName)
-			if len(res) == 0 || err != nil {
-				return errors.Errorf("proposalID [%d] does not exist", proposalID)
-			}
-
-			var proposal gov.Proposal
-			cdc.MustUnmarshalBinary(res, &proposal)
-
-			if proposal.GetStatus() != gov.StatusVotingPeriod {
-				fmt.Println("Proposal not in voting period.")
-				return nil
-			}
-
-			res2, err := ctx.QuerySubspace(cdc, gov.KeyVotesSubspace(proposalID), storeName)
-			if err != nil {
-				return err
-			}
-
-			var votes []gov.Vote
-			for i := 0; i < len(res2); i++ {
-				var vote gov.Vote
-				cdc.MustUnmarshalBinary(res2[i].Value, &vote)
-				votes = append(votes, vote)
-			}
-
-			output, err := wire.MarshalJSONIndent(cdc, votes)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(string(output))
-
-			return nil
-		},
-	}
-
-	cmd.Flags().String(flagProposalID, "", "proposalID of which proposal's votes are being queried")
 
 	return cmd
 }

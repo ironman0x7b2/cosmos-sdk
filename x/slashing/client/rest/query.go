@@ -7,56 +7,71 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/cosmos/cosmos-sdk/client/context"
+	"github.com/cosmos/cosmos-sdk/client/utils"
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/wire"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 )
 
-func registerQueryRoutes(ctx context.CoreContext, r *mux.Router, cdc *wire.Codec) {
+func registerQueryRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec) {
 	r.HandleFunc(
-		"/slashing/signing_info/{validator}",
-		signingInfoHandlerFn(ctx, "slashing", cdc),
+		"/slashing/validators/{validatorPubKey}/signing_info",
+		signingInfoHandlerFn(cliCtx, "slashing", cdc),
+	).Methods("GET")
+
+	r.HandleFunc(
+		"/slashing/parameters",
+		queryParamsHandlerFn(cdc, cliCtx),
 	).Methods("GET")
 }
 
 // http request handler to query signing info
-func signingInfoHandlerFn(ctx context.CoreContext, storeName string, cdc *wire.Codec) http.HandlerFunc {
+// nolint: unparam
+func signingInfoHandlerFn(cliCtx context.CLIContext, storeName string, cdc *codec.Codec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		// read parameters
 		vars := mux.Vars(r)
-		bech32validator := vars["validator"]
 
-		validatorAddr, err := sdk.ValAddressFromBech32(bech32validator)
+		pk, err := sdk.GetConsPubKeyBech32(vars["validatorPubKey"])
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
+			utils.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		key := slashing.GetValidatorSigningInfoKey(validatorAddr)
-		res, err := ctx.QueryStore(key, storeName)
+		key := slashing.GetValidatorSigningInfoKey(sdk.ConsAddress(pk.Address()))
+
+		res, err := cliCtx.QueryStore(key, storeName)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("couldn't query signing info. Error: %s", err.Error())))
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		if len(res) == 0 {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
 		var signingInfo slashing.ValidatorSigningInfo
-		err = cdc.UnmarshalBinary(res, &signingInfo)
+
+		err = cdc.UnmarshalBinaryLengthPrefixed(res, &signingInfo)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("couldn't decode signing info. Error: %s", err.Error())))
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		output, err := cdc.MarshalJSON(signingInfo)
+		utils.PostProcessResponse(w, cdc, signingInfo, cliCtx.Indent)
+	}
+}
+
+func queryParamsHandlerFn(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		route := fmt.Sprintf("custom/%s/parameters", slashing.QuerierRoute)
+
+		res, err := cliCtx.QueryWithData(route, nil)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			utils.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		w.Write(output)
+		utils.PostProcessResponse(w, cdc, res, cliCtx.Indent)
 	}
 }

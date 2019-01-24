@@ -5,10 +5,9 @@ import (
 	"io"
 	"strings"
 
-	"golang.org/x/crypto/ripemd160"
-
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/crypto/merkle"
+	"github.com/tendermint/tendermint/crypto/tmhash"
 	dbm "github.com/tendermint/tendermint/libs/db"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -68,6 +67,9 @@ func (rs *rootMultiStore) MountStoreWithDB(key StoreKey, typ StoreType, db dbm.D
 	if _, ok := rs.storesParams[key]; ok {
 		panic(fmt.Sprintf("rootMultiStore duplicate store key %v", key))
 	}
+	if _, ok := rs.keysByName[key.Name()]; ok {
+		panic(fmt.Sprintf("rootMultiStore duplicate store key name %v", key))
+	}
 	rs.storesParams[key] = storeParams{
 		key: key,
 		typ: typ,
@@ -99,7 +101,7 @@ func (rs *rootMultiStore) LoadVersion(ver int64) error {
 	if ver == 0 {
 		for key, storeParams := range rs.storesParams {
 			id := CommitID{}
-			store, err := rs.loadCommitStoreFromParams(id, storeParams)
+			store, err := rs.loadCommitStoreFromParams(key, id, storeParams)
 			if err != nil {
 				return fmt.Errorf("failed to load rootMultiStore: %v", err)
 			}
@@ -117,23 +119,26 @@ func (rs *rootMultiStore) LoadVersion(ver int64) error {
 		return err
 	}
 
+	// Convert StoreInfos slice to map
+	infos := make(map[StoreKey]storeInfo)
+	for _, storeInfo := range cInfo.StoreInfos {
+		infos[rs.nameToKey(storeInfo.Name)] = storeInfo
+	}
+
 	// Load each Store
 	var newStores = make(map[StoreKey]CommitStore)
-	for _, storeInfo := range cInfo.StoreInfos {
-		key, commitID := rs.nameToKey(storeInfo.Name), storeInfo.Core.CommitID
-		storeParams := rs.storesParams[key]
-		store, err := rs.loadCommitStoreFromParams(commitID, storeParams)
+	for key, storeParams := range rs.storesParams {
+		var id CommitID
+		info, ok := infos[key]
+		if ok {
+			id = info.Core.CommitID
+		}
+
+		store, err := rs.loadCommitStoreFromParams(key, id, storeParams)
 		if err != nil {
 			return fmt.Errorf("failed to load rootMultiStore: %v", err)
 		}
 		newStores[key] = store
-	}
-
-	// If any CommitStoreLoaders were not used, return error.
-	for key := range rs.storesParams {
-		if _, ok := newStores[key]; !ok {
-			return fmt.Errorf("unused CommitStoreLoader: %v", key)
-		}
 	}
 
 	// Success.
@@ -225,13 +230,19 @@ func (rs *rootMultiStore) CacheMultiStore() CacheMultiStore {
 }
 
 // Implements MultiStore.
+// If the store does not exist, panics.
 func (rs *rootMultiStore) GetStore(key StoreKey) Store {
-	return rs.stores[key]
+	store := rs.stores[key]
+	if store == nil {
+		panic("Could not load store " + key.String())
+	}
+	return store
 }
 
 // GetKVStore implements the MultiStore interface. If tracing is enabled on the
 // rootMultiStore, a wrapped TraceKVStore will be returned with the given
 // tracer, otherwise, the original KVStore will be returned.
+// If the store does not exist, panics.
 func (rs *rootMultiStore) GetKVStore(key StoreKey) KVStore {
 	store := rs.stores[key].(KVStore)
 
@@ -242,10 +253,7 @@ func (rs *rootMultiStore) GetKVStore(key StoreKey) KVStore {
 	return store
 }
 
-// Implements MultiStore.
-func (rs *rootMultiStore) GetKVStoreWithGas(meter sdk.GasMeter, key StoreKey) KVStore {
-	return NewGasKVStore(meter, rs.GetKVStore(key))
-}
+// Implements MultiStore
 
 // getStoreByName will first convert the original name to
 // a special key, before looking up the CommitStore.
@@ -288,6 +296,28 @@ func (rs *rootMultiStore) Query(req abci.RequestQuery) abci.ResponseQuery {
 	// trim the path and make the query
 	req.Path = subpath
 	res := queryable.Query(req)
+
+	if !req.Prove || !RequireProof(subpath) {
+		return res
+	}
+
+	if res.Proof == nil || len(res.Proof.Ops) == 0 {
+		return sdk.ErrInternal("substore proof was nil/empty when it should never be").QueryResult()
+	}
+
+	commitInfo, errMsg := getCommitInfo(rs.db, res.Height)
+	if errMsg != nil {
+		return sdk.ErrInternal(errMsg.Error()).QueryResult()
+	}
+
+	// Restore origin path and append proof op.
+	res.Proof.Ops = append(res.Proof.Ops, NewMultiStoreProofOp(
+		[]byte(storeName),
+		NewMultiStoreProof(commitInfo.StoreInfos),
+	).ProofOp())
+
+	// TODO: handle in another TM v0.26 update PR
+	// res.Proof = buildMultiStoreProof(res.Proof, storeName, commitInfo.StoreInfos)
 	return res
 }
 
@@ -299,17 +329,20 @@ func parsePath(path string) (storeName string, subpath string, err sdk.Error) {
 		err = sdk.ErrUnknownRequest(fmt.Sprintf("invalid path: %s", path))
 		return
 	}
+
 	paths := strings.SplitN(path[1:], "/", 2)
 	storeName = paths[0]
+
 	if len(paths) == 2 {
 		subpath = "/" + paths[1]
 	}
+
 	return
 }
 
 //----------------------------------------
 
-func (rs *rootMultiStore) loadCommitStoreFromParams(id CommitID, params storeParams) (store CommitStore, err error) {
+func (rs *rootMultiStore) loadCommitStoreFromParams(key sdk.StoreKey, id CommitID, params storeParams) (store CommitStore, err error) {
 	var db dbm.DB
 	if params.db != nil {
 		db = dbm.NewPrefixDB(params.db, []byte("s/_/"))
@@ -325,7 +358,16 @@ func (rs *rootMultiStore) loadCommitStoreFromParams(id CommitID, params storePar
 		store, err = LoadIAVLStore(db, id, rs.pruning)
 		return
 	case sdk.StoreTypeDB:
-		panic("dbm.DB is not a CommitStore")
+		store = commitDBStoreAdapter{dbStoreAdapter{db}}
+		return
+	case sdk.StoreTypeTransient:
+		_, ok := key.(*sdk.TransientStoreKey)
+		if !ok {
+			err = fmt.Errorf("invalid StoreKey for StoreTypeTransient: %s", key.String())
+			return
+		}
+		store = newTransientStore()
+		return
 	default:
 		panic(fmt.Sprintf("unrecognized store type %v", params.typ))
 	}
@@ -364,11 +406,12 @@ type commitInfo struct {
 
 // Hash returns the simple merkle root hash of the stores sorted by name.
 func (ci commitInfo) Hash() []byte {
-	// TODO cache to ci.hash []byte
-	m := make(map[string]merkle.Hasher, len(ci.StoreInfos))
+	// TODO: cache to ci.hash []byte
+	m := make(map[string][]byte, len(ci.StoreInfos))
 	for _, storeInfo := range ci.StoreInfos {
-		m[storeInfo.Name] = storeInfo
+		m[storeInfo.Name] = storeInfo.Hash()
 	}
+
 	return merkle.SimpleHashFromMap(m)
 }
 
@@ -400,13 +443,15 @@ type storeCore struct {
 func (si storeInfo) Hash() []byte {
 	// Doesn't write Name, since merkle.SimpleHashFromMap() will
 	// include them via the keys.
-	bz, _ := cdc.MarshalBinary(si.Core) // Does not error
-	hasher := ripemd160.New()
+	bz, _ := cdc.MarshalBinaryLengthPrefixed(si.Core)
+	hasher := tmhash.New()
+
 	_, err := hasher.Write(bz)
 	if err != nil {
 		// TODO: Handle with #870
 		panic(err)
 	}
+
 	return hasher.Sum(nil)
 }
 
@@ -419,16 +464,18 @@ func getLatestVersion(db dbm.DB) int64 {
 	if latestBytes == nil {
 		return 0
 	}
-	err := cdc.UnmarshalBinary(latestBytes, &latest)
+
+	err := cdc.UnmarshalBinaryLengthPrefixed(latestBytes, &latest)
 	if err != nil {
 		panic(err)
 	}
+
 	return latest
 }
 
 // Set the latest version.
 func setLatestVersion(batch dbm.Batch, version int64) {
-	latestBytes, _ := cdc.MarshalBinary(version) // Does not error
+	latestBytes, _ := cdc.MarshalBinaryLengthPrefixed(version)
 	batch.Set([]byte(latestVersionKey), latestBytes)
 }
 
@@ -439,6 +486,10 @@ func commitStores(version int64, storeMap map[StoreKey]CommitStore) commitInfo {
 	for key, store := range storeMap {
 		// Commit
 		commitID := store.Commit()
+
+		if store.GetStoreType() == sdk.StoreTypeTransient {
+			continue
+		}
 
 		// Record CommitID
 		si := storeInfo{}
@@ -465,21 +516,19 @@ func getCommitInfo(db dbm.DB, ver int64) (commitInfo, error) {
 		return commitInfo{}, fmt.Errorf("failed to get rootMultiStore: no data")
 	}
 
-	// Parse bytes.
 	var cInfo commitInfo
-	err := cdc.UnmarshalBinary(cInfoBytes, &cInfo)
+
+	err := cdc.UnmarshalBinaryLengthPrefixed(cInfoBytes, &cInfo)
 	if err != nil {
 		return commitInfo{}, fmt.Errorf("failed to get rootMultiStore: %v", err)
 	}
+
 	return cInfo, nil
 }
 
 // Set a commitInfo for given version.
 func setCommitInfo(batch dbm.Batch, version int64, cInfo commitInfo) {
-	cInfoBytes, err := cdc.MarshalBinary(cInfo)
-	if err != nil {
-		panic(err)
-	}
+	cInfoBytes := cdc.MustMarshalBinaryLengthPrefixed(cInfo)
 	cInfoKey := fmt.Sprintf(commitInfoKeyFmt, version)
 	batch.Set([]byte(cInfoKey), cInfoBytes)
 }

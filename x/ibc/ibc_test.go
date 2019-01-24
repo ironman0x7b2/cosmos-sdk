@@ -10,14 +10,14 @@ import (
 	dbm "github.com/tendermint/tendermint/libs/db"
 	"github.com/tendermint/tendermint/libs/log"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/store"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/wire"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 )
 
-// AccountMapper(/Keeper) and IBCMapper should use different StoreKey later
+// AccountKeeper(/Keeper) and IBCMapper should use different StoreKey later
 
 func defaultContext(key sdk.StoreKey) sdk.Context {
 	db := dbm.NewMemDB()
@@ -38,20 +38,19 @@ func getCoins(ck bank.Keeper, ctx sdk.Context, addr sdk.AccAddress) (sdk.Coins, 
 	return coins, err
 }
 
-func makeCodec() *wire.Codec {
-	var cdc = wire.NewCodec()
+func makeCodec() *codec.Codec {
+	var cdc = codec.New()
 
 	// Register Msgs
 	cdc.RegisterInterface((*sdk.Msg)(nil), nil)
 	cdc.RegisterConcrete(bank.MsgSend{}, "test/ibc/Send", nil)
-	cdc.RegisterConcrete(bank.MsgIssue{}, "test/ibc/Issue", nil)
 	cdc.RegisterConcrete(IBCTransferMsg{}, "test/ibc/IBCTransferMsg", nil)
 	cdc.RegisterConcrete(IBCReceiveMsg{}, "test/ibc/IBCReceiveMsg", nil)
 
 	// Register AppAccount
 	cdc.RegisterInterface((*auth.Account)(nil), nil)
 	cdc.RegisterConcrete(&auth.BaseAccount{}, "test/ibc/Account", nil)
-	wire.RegisterCrypto(cdc)
+	codec.RegisterCrypto(cdc)
 
 	cdc.Seal()
 
@@ -64,14 +63,14 @@ func TestIBC(t *testing.T) {
 	key := sdk.NewKVStoreKey("ibc")
 	ctx := defaultContext(key)
 
-	am := auth.NewAccountMapper(cdc, key, auth.ProtoBaseAccount)
-	ck := bank.NewKeeper(am)
+	am := auth.NewAccountKeeper(cdc, key, auth.ProtoBaseAccount)
+	ck := bank.NewBaseKeeper(am)
 
 	src := newAddress()
 	dest := newAddress()
 	chainid := "ibcchain"
 	zero := sdk.Coins(nil)
-	mycoins := sdk.Coins{sdk.NewCoin("mycoin", 10)}
+	mycoins := sdk.Coins{sdk.NewInt64Coin("mycoin", 10)}
 
 	coins, _, err := ck.AddCoins(ctx, src, mycoins)
 	require.Nil(t, err)
@@ -91,11 +90,11 @@ func TestIBC(t *testing.T) {
 
 	var msg sdk.Msg
 	var res sdk.Result
-	var egl int64
-	var igs int64
+	var egl uint64
+	var igs uint64
 
 	egl = ibcm.getEgressLength(store, chainid)
-	require.Equal(t, egl, int64(0))
+	require.Equal(t, egl, uint64(0))
 
 	msg = IBCTransferMsg{
 		IBCPacket: packet,
@@ -108,10 +107,10 @@ func TestIBC(t *testing.T) {
 	require.Equal(t, zero, coins)
 
 	egl = ibcm.getEgressLength(store, chainid)
-	require.Equal(t, egl, int64(1))
+	require.Equal(t, egl, uint64(1))
 
 	igs = ibcm.GetIngressSequence(ctx, chainid)
-	require.Equal(t, igs, int64(0))
+	require.Equal(t, igs, uint64(0))
 
 	msg = IBCReceiveMsg{
 		IBCPacket: packet,
@@ -126,11 +125,11 @@ func TestIBC(t *testing.T) {
 	require.Equal(t, mycoins, coins)
 
 	igs = ibcm.GetIngressSequence(ctx, chainid)
-	require.Equal(t, igs, int64(1))
+	require.Equal(t, igs, uint64(1))
 
 	res = h(ctx, msg)
 	require.False(t, res.IsOK())
 
 	igs = ibcm.GetIngressSequence(ctx, chainid)
-	require.Equal(t, igs, int64(1))
+	require.Equal(t, igs, uint64(1))
 }

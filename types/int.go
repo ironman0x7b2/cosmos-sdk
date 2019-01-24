@@ -2,21 +2,15 @@ package types
 
 import (
 	"encoding/json"
+	"math"
+	"testing"
 
 	"math/big"
+	"math/rand"
 )
 
 func newIntegerFromString(s string) (*big.Int, bool) {
 	return new(big.Int).SetString(s, 0)
-}
-
-func newIntegerWithDecimal(n int64, dec int) (res *big.Int) {
-	if dec < 0 {
-		return
-	}
-	exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(dec)), nil)
-	i := new(big.Int)
-	return i.Mul(big.NewInt(n), exp)
 }
 
 func equal(i *big.Int, i2 *big.Int) bool { return i.Cmp(i2) == 0 }
@@ -36,6 +30,8 @@ func div(i *big.Int, i2 *big.Int) *big.Int { return new(big.Int).Div(i, i2) }
 func mod(i *big.Int, i2 *big.Int) *big.Int { return new(big.Int).Mod(i, i2) }
 
 func neg(i *big.Int) *big.Int { return new(big.Int).Neg(i) }
+
+func random(i *big.Int) *big.Int { return new(big.Int).Rand(rand.New(rand.NewSource(rand.Int63())), i) }
 
 func min(i *big.Int, i2 *big.Int) *big.Int {
 	if i.Cmp(i2) == 1 {
@@ -118,7 +114,13 @@ func NewIntFromString(s string) (res Int, ok bool) {
 // NewIntWithDecimal constructs Int with decimal
 // Result value is n*10^dec
 func NewIntWithDecimal(n int64, dec int) Int {
-	i := newIntegerWithDecimal(n, dec)
+	if dec < 0 {
+		panic("NewIntWithDecimal() decimal is negative")
+	}
+	exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(dec)), nil)
+	i := new(big.Int)
+	i.Mul(big.NewInt(n), exp)
+
 	// Check overflow
 	if i.BitLen() > 255 {
 		panic("NewIntWithDecimal() out of bound")
@@ -139,6 +141,11 @@ func (i Int) Int64() int64 {
 		panic("Int64() out of bound")
 	}
 	return i.i.Int64()
+}
+
+// IsInt64 returns true if Int64() not panics
+func (i Int) IsInt64() bool {
+	return i.i.IsInt64()
 }
 
 // IsZero returns true if Int is zero
@@ -229,6 +236,19 @@ func (i Int) DivRaw(i2 int64) Int {
 	return i.Div(NewInt(i2))
 }
 
+// Mod returns remainder after dividing with Int
+func (i Int) Mod(i2 Int) Int {
+	if i2.Sign() == 0 {
+		panic("division-by-zero")
+	}
+	return Int{mod(i.i, i2.i)}
+}
+
+// ModRaw returns remainder after dividing with int64
+func (i Int) ModRaw(i2 int64) Int {
+	return i.Mod(NewInt(i2))
+}
+
 // Neg negates Int
 func (i Int) Neg() (res Int) {
 	return Int{neg(i.i)}
@@ -239,8 +259,14 @@ func MinInt(i1, i2 Int) Int {
 	return Int{min(i1.BigInt(), i2.BigInt())}
 }
 
+// Human readable string
 func (i Int) String() string {
 	return i.i.String()
+}
+
+// Testing purpose random Int generator
+func randomInt(i Int) Int {
+	return NewIntFromBigInt(random(i.BigInt()))
 }
 
 // MarshalAmino defines custom encoding scheme
@@ -296,11 +322,11 @@ func NewUint(n uint64) Uint {
 
 // NewUintFromBigUint constructs Uint from big.Uint
 func NewUintFromBigInt(i *big.Int) Uint {
-	// Check overflow
-	if i.Sign() == -1 || i.Sign() == 1 && i.BitLen() > 256 {
+	res := Uint{i}
+	if UintOverflow(res) {
 		panic("Uint overflow")
 	}
-	return Uint{i}
+	return res
 }
 
 // NewUintFromString constructs Uint from string
@@ -319,13 +345,20 @@ func NewUintFromString(s string) (res Uint, ok bool) {
 
 // NewUintWithDecimal constructs Uint with decimal
 // Result value is n*10^dec
-func NewUintWithDecimal(n int64, dec int) Uint {
-	i := newIntegerWithDecimal(n, dec)
-	// Check overflow
-	if i.Sign() == -1 || i.Sign() == 1 && i.BitLen() > 256 {
+func NewUintWithDecimal(n uint64, dec int) Uint {
+	if dec < 0 {
+		panic("NewUintWithDecimal() decimal is negative")
+	}
+	exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(dec)), nil)
+	i := new(big.Int)
+	i.Mul(new(big.Int).SetUint64(n), exp)
+
+	res := Uint{i}
+	if UintOverflow(res) {
 		panic("NewUintWithDecimal() out of bound")
 	}
-	return Uint{i}
+
+	return res
 }
 
 // ZeroUint returns Uint value with zero
@@ -341,6 +374,11 @@ func (i Uint) Uint64() uint64 {
 		panic("Uint64() out of bound")
 	}
 	return i.i.Uint64()
+}
+
+// IsUint64 returns true if Uint64() not panics
+func (i Uint) IsUint64() bool {
+	return i.i.IsUint64()
 }
 
 // IsZero returns true if Uint is zero
@@ -371,14 +409,13 @@ func (i Uint) LT(i2 Uint) bool {
 // Add adds Uint from another
 func (i Uint) Add(i2 Uint) (res Uint) {
 	res = Uint{add(i.i, i2.i)}
-	// Check overflow
-	if res.Sign() == -1 || res.Sign() == 1 && res.i.BitLen() > 256 {
+	if UintOverflow(res) {
 		panic("Uint overflow")
 	}
 	return
 }
 
-// AddRaw adds int64 to Uint
+// AddRaw adds uint64 to Uint
 func (i Uint) AddRaw(i2 uint64) Uint {
 	return i.Add(NewUint(i2))
 }
@@ -386,33 +423,43 @@ func (i Uint) AddRaw(i2 uint64) Uint {
 // Sub subtracts Uint from another
 func (i Uint) Sub(i2 Uint) (res Uint) {
 	res = Uint{sub(i.i, i2.i)}
-	// Check overflow
-	if res.Sign() == -1 || res.Sign() == 1 && res.i.BitLen() > 256 {
+	if UintOverflow(res) {
 		panic("Uint overflow")
 	}
 	return
 }
 
-// SubRaw subtracts int64 from Uint
+// SafeSub attempts to subtract one Uint from another. A boolean is also returned
+// indicating if the result contains integer overflow.
+func (i Uint) SafeSub(i2 Uint) (Uint, bool) {
+	res := Uint{sub(i.i, i2.i)}
+	if UintOverflow(res) {
+		return res, true
+	}
+
+	return res, false
+}
+
+// SubRaw subtracts uint64 from Uint
 func (i Uint) SubRaw(i2 uint64) Uint {
 	return i.Sub(NewUint(i2))
 }
 
 // Mul multiples two Uints
 func (i Uint) Mul(i2 Uint) (res Uint) {
-	// Check overflow
 	if i.i.BitLen()+i2.i.BitLen()-1 > 256 {
 		panic("Uint overflow")
 	}
+
 	res = Uint{mul(i.i, i2.i)}
-	// Check overflow
-	if res.Sign() == -1 || res.Sign() == 1 && res.i.BitLen() > 256 {
+	if UintOverflow(res) {
 		panic("Uint overflow")
 	}
+
 	return
 }
 
-// MulRaw multipies Uint and int64
+// MulRaw multipies Uint and uint64
 func (i Uint) MulRaw(i2 uint64) Uint {
 	return i.Mul(NewUint(i2))
 }
@@ -426,14 +473,37 @@ func (i Uint) Div(i2 Uint) (res Uint) {
 	return Uint{div(i.i, i2.i)}
 }
 
-// Div divides Uint with int64
+// Div divides Uint with uint64
 func (i Uint) DivRaw(i2 uint64) Uint {
 	return i.Div(NewUint(i2))
+}
+
+// Mod returns remainder after dividing with Uint
+func (i Uint) Mod(i2 Uint) Uint {
+	if i2.Sign() == 0 {
+		panic("division-by-zero")
+	}
+	return Uint{mod(i.i, i2.i)}
+}
+
+// ModRaw returns remainder after dividing with uint64
+func (i Uint) ModRaw(i2 uint64) Uint {
+	return i.Mod(NewUint(i2))
 }
 
 // Return the minimum of the Uints
 func MinUint(i1, i2 Uint) Uint {
 	return Uint{min(i1.BigInt(), i2.BigInt())}
+}
+
+// Human readable string
+func (i Uint) String() string {
+	return i.i.String()
+}
+
+// Testing purpose random Uint generator
+func randomUint(i Uint) Uint {
+	return NewUintFromBigInt(random(i.BigInt()))
 }
 
 // MarshalAmino defines custom encoding scheme
@@ -466,4 +536,27 @@ func (i *Uint) UnmarshalJSON(bz []byte) error {
 		i.i = new(big.Int)
 	}
 	return unmarshalJSON(i.i, bz)
+}
+
+//__________________________________________________________________________
+
+// UintOverflow returns true if a given unsigned integer overflows and false
+// otherwise.
+func UintOverflow(x Uint) bool {
+	return x.i.Sign() == -1 || x.i.Sign() == 1 && x.i.BitLen() > 256
+}
+
+// AddUint64Overflow performs the addition operation on two uint64 integers and
+// returns a boolean on whether or not the result overflows.
+func AddUint64Overflow(a, b uint64) (uint64, bool) {
+	if math.MaxUint64-a < b {
+		return 0, true
+	}
+
+	return a + b, false
+}
+
+// intended to be used with require/assert:  require.True(IntEq(...))
+func IntEq(t *testing.T, exp, got Int) (*testing.T, bool, string, string, string) {
+	return t, exp.Equal(got), "expected:\t%v\ngot:\t\t%v", exp.String(), got.String()
 }

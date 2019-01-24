@@ -3,6 +3,7 @@ package keeper
 import (
 	"bytes"
 	"encoding/hex"
+	"math/rand"
 	"strconv"
 	"testing"
 
@@ -13,19 +14,21 @@ import (
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	dbm "github.com/tendermint/tendermint/libs/db"
 	"github.com/tendermint/tendermint/libs/log"
+	tmtypes "github.com/tendermint/tendermint/types"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/store"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/wire"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/bank"
+	"github.com/cosmos/cosmos-sdk/x/params"
 	"github.com/cosmos/cosmos-sdk/x/stake/types"
 )
 
 // dummy addresses used for testing
 var (
-	Addrs       = createTestAddrs(100)
-	PKs         = createTestPubKeys(100)
+	Addrs       = createTestAddrs(500)
+	PKs         = createTestPubKeys(500)
 	emptyAddr   sdk.AccAddress
 	emptyPubkey crypto.PubKey
 
@@ -33,12 +36,12 @@ var (
 		Addrs[0],
 		Addrs[1],
 	}
-	addrVals = []sdk.AccAddress{
-		Addrs[2],
-		Addrs[3],
-		Addrs[4],
-		Addrs[5],
-		Addrs[6],
+	addrVals = []sdk.ValAddress{
+		sdk.ValAddress(Addrs[2]),
+		sdk.ValAddress(Addrs[3]),
+		sdk.ValAddress(Addrs[4]),
+		sdk.ValAddress(Addrs[5]),
+		sdk.ValAddress(Addrs[6]),
 	}
 )
 
@@ -52,78 +55,72 @@ func ValEq(t *testing.T, exp, got types.Validator) (*testing.T, bool, string, ty
 //_______________________________________________________________________________________
 
 // create a codec used only for testing
-func MakeTestCodec() *wire.Codec {
-	var cdc = wire.NewCodec()
+func MakeTestCodec() *codec.Codec {
+	var cdc = codec.New()
 
 	// Register Msgs
 	cdc.RegisterInterface((*sdk.Msg)(nil), nil)
 	cdc.RegisterConcrete(bank.MsgSend{}, "test/stake/Send", nil)
-	cdc.RegisterConcrete(bank.MsgIssue{}, "test/stake/Issue", nil)
 	cdc.RegisterConcrete(types.MsgCreateValidator{}, "test/stake/CreateValidator", nil)
 	cdc.RegisterConcrete(types.MsgEditValidator{}, "test/stake/EditValidator", nil)
 	cdc.RegisterConcrete(types.MsgBeginUnbonding{}, "test/stake/BeginUnbonding", nil)
-	cdc.RegisterConcrete(types.MsgCompleteUnbonding{}, "test/stake/CompleteUnbonding", nil)
 	cdc.RegisterConcrete(types.MsgBeginRedelegate{}, "test/stake/BeginRedelegate", nil)
-	cdc.RegisterConcrete(types.MsgCompleteRedelegate{}, "test/stake/CompleteRedelegate", nil)
 
 	// Register AppAccount
 	cdc.RegisterInterface((*auth.Account)(nil), nil)
 	cdc.RegisterConcrete(&auth.BaseAccount{}, "test/stake/Account", nil)
-	wire.RegisterCrypto(cdc)
+	codec.RegisterCrypto(cdc)
 
 	return cdc
 }
 
-// default params without inflation
-func ParamsNoInflation() types.Params {
-	return types.Params{
-		InflationRateChange: sdk.ZeroRat(),
-		InflationMax:        sdk.ZeroRat(),
-		InflationMin:        sdk.ZeroRat(),
-		GoalBonded:          sdk.NewRat(67, 100),
-		MaxValidators:       100,
-		BondDenom:           "steak",
-	}
-}
-
 // hogpodge of all sorts of input required for testing
-func CreateTestInput(t *testing.T, isCheckTx bool, initCoins int64) (sdk.Context, auth.AccountMapper, Keeper) {
+func CreateTestInput(t *testing.T, isCheckTx bool, initCoins int64) (sdk.Context, auth.AccountKeeper, Keeper) {
 
 	keyStake := sdk.NewKVStoreKey("stake")
+	tkeyStake := sdk.NewTransientStoreKey("transient_stake")
 	keyAcc := sdk.NewKVStoreKey("acc")
+	keyParams := sdk.NewKVStoreKey("params")
+	tkeyParams := sdk.NewTransientStoreKey("transient_params")
 
 	db := dbm.NewMemDB()
 	ms := store.NewCommitMultiStore(db)
+	ms.MountStoreWithDB(tkeyStake, sdk.StoreTypeTransient, nil)
 	ms.MountStoreWithDB(keyStake, sdk.StoreTypeIAVL, db)
 	ms.MountStoreWithDB(keyAcc, sdk.StoreTypeIAVL, db)
+	ms.MountStoreWithDB(keyParams, sdk.StoreTypeIAVL, db)
+	ms.MountStoreWithDB(tkeyParams, sdk.StoreTypeTransient, db)
 	err := ms.LoadLatestVersion()
 	require.Nil(t, err)
 
 	ctx := sdk.NewContext(ms, abci.Header{ChainID: "foochainid"}, isCheckTx, log.NewNopLogger())
+	ctx = ctx.WithConsensusParams(&abci.ConsensusParams{Validator: &abci.ValidatorParams{PubKeyTypes: []string{tmtypes.ABCIPubKeyTypeEd25519}}})
 	cdc := MakeTestCodec()
-	accountMapper := auth.NewAccountMapper(
+	accountKeeper := auth.NewAccountKeeper(
 		cdc,                   // amino codec
 		keyAcc,                // target store
 		auth.ProtoBaseAccount, // prototype
 	)
-	ck := bank.NewKeeper(accountMapper)
-	keeper := NewKeeper(cdc, keyStake, ck, types.DefaultCodespace)
+
+	ck := bank.NewBaseKeeper(accountKeeper)
+
+	pk := params.NewKeeper(cdc, keyParams, tkeyParams)
+	keeper := NewKeeper(cdc, keyStake, tkeyStake, ck, pk.Subspace(DefaultParamspace), types.DefaultCodespace)
 	keeper.SetPool(ctx, types.InitialPool())
-	keeper.SetNewParams(ctx, types.DefaultParams())
-	keeper.InitIntraTxCounter(ctx)
+	keeper.SetParams(ctx, types.DefaultParams())
 
 	// fill all the addresses with some coins, set the loose pool tokens simultaneously
 	for _, addr := range Addrs {
 		pool := keeper.GetPool(ctx)
 		_, _, err := ck.AddCoins(ctx, addr, sdk.Coins{
-			{keeper.GetParams(ctx).BondDenom, sdk.NewInt(initCoins)},
+			{keeper.BondDenom(ctx), sdk.NewInt(initCoins)},
 		})
 		require.Nil(t, err)
-		pool.LooseTokens = pool.LooseTokens.Add(sdk.NewRat(initCoins))
+		pool.LooseTokens = pool.LooseTokens.Add(sdk.NewDec(initCoins))
 		keeper.SetPool(ctx, pool)
 	}
 
-	return ctx, accountMapper, keeper
+	return ctx, accountKeeper, keeper
 }
 
 func NewPubKey(pk string) (res crypto.PubKey) {
@@ -200,5 +197,61 @@ func createTestPubKeys(numPubKeys int) []crypto.PubKey {
 // does a certain by-power index record exist
 func ValidatorByPowerIndexExists(ctx sdk.Context, keeper Keeper, power []byte) bool {
 	store := ctx.KVStore(keeper.storeKey)
-	return store.Get(power) != nil
+	return store.Has(power)
+}
+
+// update validator for testing
+func TestingUpdateValidator(keeper Keeper, ctx sdk.Context, validator types.Validator, apply bool) types.Validator {
+	keeper.SetValidator(ctx, validator)
+	{ // Remove any existing power key for validator.
+		store := ctx.KVStore(keeper.storeKey)
+		iterator := sdk.KVStorePrefixIterator(store, ValidatorsByPowerIndexKey)
+		deleted := false
+		for ; iterator.Valid(); iterator.Next() {
+			valAddr := parseValidatorPowerRankKey(iterator.Key())
+			if bytes.Equal(valAddr, validator.OperatorAddr) {
+				if deleted {
+					panic("found duplicate power index key")
+				} else {
+					deleted = true
+				}
+				store.Delete(iterator.Key())
+			}
+		}
+	}
+	keeper.SetValidatorByPowerIndex(ctx, validator)
+	if apply {
+		keeper.ApplyAndReturnValidatorSetUpdates(ctx)
+		validator, found := keeper.GetValidator(ctx, validator.OperatorAddr)
+		if !found {
+			panic("validator expected but not found")
+		}
+		return validator
+	}
+	cachectx, _ := ctx.CacheContext()
+	keeper.ApplyAndReturnValidatorSetUpdates(cachectx)
+	validator, found := keeper.GetValidator(cachectx, validator.OperatorAddr)
+	if !found {
+		panic("validator expected but not found")
+	}
+	return validator
+}
+
+func validatorByPowerIndexExists(k Keeper, ctx sdk.Context, power []byte) bool {
+	store := ctx.KVStore(k.storeKey)
+	return store.Has(power)
+}
+
+// RandomValidator returns a random validator given access to the keeper and ctx
+func RandomValidator(r *rand.Rand, keeper Keeper, ctx sdk.Context) types.Validator {
+	vals := keeper.GetAllValidators(ctx)
+	i := r.Intn(len(vals))
+	return vals[i]
+}
+
+// RandomBondedValidator returns a random bonded validator given access to the keeper and ctx
+func RandomBondedValidator(r *rand.Rand, keeper Keeper, ctx sdk.Context) types.Validator {
+	vals := keeper.GetBondedValidatorsByPower(ctx)
+	i := r.Intn(len(vals))
+	return vals[i]
 }

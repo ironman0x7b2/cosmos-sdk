@@ -4,20 +4,30 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/cosmos/cosmos-sdk/crypto/keys/hd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cosmos/cosmos-sdk/crypto/keys/hd"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/mintkey"
+
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 
 	dbm "github.com/tendermint/tendermint/libs/db"
+
+	"github.com/cosmos/cosmos-sdk/types"
 )
+
+func init() {
+	mintkey.BcryptSecurityParameter = 1
+}
 
 // TestKeyManagement makes sure we can manipulate these keys well
 func TestKeyManagement(t *testing.T) {
 	// make the storage with reasonable defaults
+	db := dbm.NewMemDB()
 	cstore := New(
-		dbm.NewMemDB(),
+		db,
 	)
 
 	algo := Secp256k1
@@ -47,6 +57,12 @@ func TestKeyManagement(t *testing.T) {
 	require.NoError(t, err)
 	_, err = cstore.Get(n3)
 	require.NotNil(t, err)
+	_, err = cstore.GetByAddress(accAddr(i2))
+	require.NoError(t, err)
+	addr, err := types.AccAddressFromBech32("cosmos1yq8lgssgxlx9smjhes6ryjasmqmd3ts2559g0t")
+	require.NoError(t, err)
+	_, err = cstore.GetByAddress(addr)
+	require.NotNil(t, err)
 
 	// list shows them in order
 	keyS, err := cstore.List()
@@ -58,9 +74,9 @@ func TestKeyManagement(t *testing.T) {
 	require.Equal(t, i2.GetPubKey(), keyS[0].GetPubKey())
 
 	// deleting a key removes it
-	err = cstore.Delete("bad name", "foo")
+	err = cstore.Delete("bad name", "foo", false)
 	require.NotNil(t, err)
-	err = cstore.Delete(n1, p1)
+	err = cstore.Delete(n1, p1, false)
 	require.NoError(t, err)
 	keyS, err = cstore.List()
 	require.NoError(t, err)
@@ -81,13 +97,16 @@ func TestKeyManagement(t *testing.T) {
 	require.Equal(t, 2, len(keyS))
 
 	// delete the offline key
-	err = cstore.Delete(o1, "no")
-	require.NotNil(t, err)
-	err = cstore.Delete(o1, "yes")
+	err = cstore.Delete(o1, "", false)
 	require.NoError(t, err)
 	keyS, err = cstore.List()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keyS))
+
+	// addr cache gets nuked - and test skip flag
+	err = cstore.Delete(n2, "", true)
+	require.NoError(t, err)
+	require.False(t, db.Has(addrKey(i2.GetAddress())))
 }
 
 // TestSignVerify does some detailed checks on how we sign and validate
@@ -142,7 +161,7 @@ func TestSignVerify(t *testing.T) {
 	cases := []struct {
 		key   crypto.PubKey
 		data  []byte
-		sig   crypto.Signature
+		sig   []byte
 		valid bool
 	}{
 		// proper matches
@@ -318,14 +337,14 @@ func TestSeedPhrase(t *testing.T) {
 	assert.NotEmpty(t, mnemonic)
 
 	// now, let us delete this key
-	err = cstore.Delete(n1, p1)
+	err = cstore.Delete(n1, p1, false)
 	require.Nil(t, err, "%+v", err)
 	_, err = cstore.Get(n1)
 	require.NotNil(t, err)
 
 	// let us re-create it from the mnemonic-phrase
 	params := *hd.NewFundraiserParams(0, 0)
-	newInfo, err := cstore.Derive(n2, mnemonic, p2, params)
+	newInfo, err := cstore.Derive(n2, mnemonic, defaultBIP39Passphrase, p2, params)
 	require.NoError(t, err)
 	require.Equal(t, n2, newInfo.GetName())
 	require.Equal(t, info.GetPubKey().Address(), newInfo.GetPubKey().Address())
@@ -382,4 +401,8 @@ func ExampleNew() {
 	// Bob
 	// Carl
 	// signed by Bob
+}
+
+func accAddr(info Info) types.AccAddress {
+	return (types.AccAddress)(info.GetPubKey().Address())
 }

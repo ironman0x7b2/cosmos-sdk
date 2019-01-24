@@ -6,6 +6,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// name to identify transaction routes
+const MsgRoute = "bank"
+
 // MsgSend - high level transaction of the coin module
 type MsgSend struct {
 	Inputs  []Input  `json:"inputs"`
@@ -20,7 +23,9 @@ func NewMsgSend(in []Input, out []Output) MsgSend {
 }
 
 // Implements Msg.
-func (msg MsgSend) Type() string { return "bank" } // TODO: "bank/send"
+// nolint
+func (msg MsgSend) Route() string { return MsgRoute }
+func (msg MsgSend) Type() string  { return "send" }
 
 // Implements Msg.
 func (msg MsgSend) ValidateBasic() sdk.Error {
@@ -32,25 +37,8 @@ func (msg MsgSend) ValidateBasic() sdk.Error {
 	if len(msg.Outputs) == 0 {
 		return ErrNoOutputs(DefaultCodespace).TraceSDK("")
 	}
-	// make sure all inputs and outputs are individually valid
-	var totalIn, totalOut sdk.Coins
-	for _, in := range msg.Inputs {
-		if err := in.ValidateBasic(); err != nil {
-			return err.TraceSDK("")
-		}
-		totalIn = totalIn.Plus(in.Coins)
-	}
-	for _, out := range msg.Outputs {
-		if err := out.ValidateBasic(); err != nil {
-			return err.TraceSDK("")
-		}
-		totalOut = totalOut.Plus(out.Coins)
-	}
-	// make sure inputs and outputs match
-	if !totalIn.IsEqual(totalOut) {
-		return sdk.ErrInvalidCoins(totalIn.String()).TraceSDK("inputs and outputs don't match")
-	}
-	return nil
+
+	return ValidateInputsOutputs(msg.Inputs, msg.Outputs)
 }
 
 // Implements Msg.
@@ -82,63 +70,6 @@ func (msg MsgSend) GetSigners() []sdk.AccAddress {
 		addrs[i] = in.Address
 	}
 	return addrs
-}
-
-//----------------------------------------
-// MsgIssue
-
-// MsgIssue - high level transaction of the coin module
-type MsgIssue struct {
-	Banker  sdk.AccAddress `json:"banker"`
-	Outputs []Output       `json:"outputs"`
-}
-
-var _ sdk.Msg = MsgIssue{}
-
-// NewMsgIssue - construct arbitrary multi-in, multi-out send msg.
-func NewMsgIssue(banker sdk.AccAddress, out []Output) MsgIssue {
-	return MsgIssue{Banker: banker, Outputs: out}
-}
-
-// Implements Msg.
-func (msg MsgIssue) Type() string { return "bank" } // TODO: "bank/issue"
-
-// Implements Msg.
-func (msg MsgIssue) ValidateBasic() sdk.Error {
-	// XXX
-	if len(msg.Outputs) == 0 {
-		return ErrNoOutputs(DefaultCodespace).TraceSDK("")
-	}
-	for _, out := range msg.Outputs {
-		if err := out.ValidateBasic(); err != nil {
-			return err.TraceSDK("")
-		}
-	}
-	return nil
-}
-
-// Implements Msg.
-func (msg MsgIssue) GetSignBytes() []byte {
-	var outputs []json.RawMessage
-	for _, output := range msg.Outputs {
-		outputs = append(outputs, output.GetSignBytes())
-	}
-	b, err := msgCdc.MarshalJSON(struct {
-		Banker  sdk.AccAddress    `json:"banker"`
-		Outputs []json.RawMessage `json:"outputs"`
-	}{
-		Banker:  msg.Banker,
-		Outputs: outputs,
-	})
-	if err != nil {
-		panic(err)
-	}
-	return sdk.MustSortJSON(b)
-}
-
-// Implements Msg.
-func (msg MsgIssue) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msg.Banker}
 }
 
 //----------------------------------------
@@ -221,4 +152,34 @@ func NewOutput(addr sdk.AccAddress, coins sdk.Coins) Output {
 		Coins:   coins,
 	}
 	return output
+}
+
+// ----------------------------------------------------------------------------
+// Auxiliary
+
+// ValidateInputsOutputs validates that each respective input and output is
+// valid and that the sum of inputs is equal to the sum of outputs.
+func ValidateInputsOutputs(inputs []Input, outputs []Output) sdk.Error {
+	var totalIn, totalOut sdk.Coins
+
+	for _, in := range inputs {
+		if err := in.ValidateBasic(); err != nil {
+			return err.TraceSDK("")
+		}
+		totalIn = totalIn.Plus(in.Coins)
+	}
+
+	for _, out := range outputs {
+		if err := out.ValidateBasic(); err != nil {
+			return err.TraceSDK("")
+		}
+		totalOut = totalOut.Plus(out.Coins)
+	}
+
+	// make sure inputs and outputs match
+	if !totalIn.IsEqual(totalOut) {
+		return sdk.ErrInvalidCoins(totalIn.String()).TraceSDK("inputs and outputs don't match")
+	}
+
+	return nil
 }

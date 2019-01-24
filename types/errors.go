@@ -2,43 +2,31 @@ package types
 
 import (
 	"fmt"
+	"strings"
 
 	cmn "github.com/tendermint/tendermint/libs/common"
+
+	"github.com/cosmos/cosmos-sdk/codec"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 )
 
-// ABCICodeType - combined codetype / codespace
-type ABCICodeType uint32
-
-// CodeType - code identifier within codespace
-type CodeType uint16
+// CodeType - ABCI code identifier within codespace
+type CodeType uint32
 
 // CodespaceType - codespace identifier
-type CodespaceType uint16
+type CodespaceType string
 
 // IsOK - is everything okay?
-func (code ABCICodeType) IsOK() bool {
-	if code == ABCICodeOK {
+func (code CodeType) IsOK() bool {
+	if code == CodeOK {
 		return true
 	}
 	return false
 }
 
-// get the abci code from the local code and codespace
-func ToABCICode(space CodespaceType, code CodeType) ABCICodeType {
-	// TODO: Make Tendermint more aware of codespaces.
-	if space == CodespaceRoot && code == CodeOK {
-		return ABCICodeOK
-	}
-	return ABCICodeType((uint32(space) << 16) | uint32(code))
-}
-
 // SDK error codes
 const (
-	// ABCI error codes
-	ABCICodeOK ABCICodeType = 0
-
 	// Base error codes
 	CodeOK                CodeType = 0
 	CodeInternal          CodeType = 1
@@ -54,19 +42,22 @@ const (
 	CodeInvalidCoins      CodeType = 11
 	CodeOutOfGas          CodeType = 12
 	CodeMemoTooLarge      CodeType = 13
+	CodeInsufficientFee   CodeType = 14
+	CodeTooManySignatures CodeType = 15
+	CodeGasOverflow       CodeType = 16
 
 	// CodespaceRoot is a codespace for error codes in this file only.
 	// Notice that 0 is an "unset" codespace, which can be overridden with
 	// Error.WithDefaultCodespace().
-	CodespaceUndefined CodespaceType = 0
-	CodespaceRoot      CodespaceType = 1
-
-	// Maximum reservable codespace (2^16 - 1)
-	MaximumCodespace CodespaceType = 65535
+	CodespaceUndefined CodespaceType = ""
+	CodespaceRoot      CodespaceType = "sdk"
 )
 
+func unknownCodeMsg(code CodeType) string {
+	return fmt.Sprintf("unknown code %d", code)
+}
+
 // NOTE: Don't stringer this, we'll put better messages in later.
-// nolint: gocyclo
 func CodeToDefaultMsg(code CodeType) string {
 	switch code {
 	case CodeInternal:
@@ -95,8 +86,12 @@ func CodeToDefaultMsg(code CodeType) string {
 		return "out of gas"
 	case CodeMemoTooLarge:
 		return "memo too large"
+	case CodeInsufficientFee:
+		return "insufficient fee"
+	case CodeTooManySignatures:
+		return "maximum numer of signatures exceeded"
 	default:
-		return fmt.Sprintf("unknown code %d", code)
+		return unknownCodeMsg(code)
 	}
 }
 
@@ -144,6 +139,15 @@ func ErrOutOfGas(msg string) Error {
 func ErrMemoTooLarge(msg string) Error {
 	return newErrorWithRootCodespace(CodeMemoTooLarge, msg)
 }
+func ErrInsufficientFee(msg string) Error {
+	return newErrorWithRootCodespace(CodeInsufficientFee, msg)
+}
+func ErrTooManySignatures(msg string) Error {
+	return newErrorWithRootCodespace(CodeTooManySignatures, msg)
+}
+func ErrGasOverflow(msg string) Error {
+	return newErrorWithRootCodespace(CodeGasOverflow, msg)
+}
 
 //----------------------------------------
 // Error & sdkError
@@ -168,7 +172,6 @@ type Error interface {
 	Code() CodeType
 	Codespace() CodespaceType
 	ABCILog() string
-	ABCICode() ABCICodeType
 	Result() Result
 	QueryResult() abci.ResponseQuery
 }
@@ -213,20 +216,19 @@ func (err *sdkError) WithDefaultCodespace(cs CodespaceType) Error {
 }
 
 // Implements ABCIError.
+// nolint: errcheck
 func (err *sdkError) TraceSDK(format string, args ...interface{}) Error {
 	err.Trace(1, format, args...)
 	return err
 }
 
 // Implements ABCIError.
-// Overrides err.Error.Error().
 func (err *sdkError) Error() string {
-	return fmt.Sprintf("Error{%d:%d,%#v}", err.codespace, err.code, err.cmnError)
-}
-
-// Implements ABCIError.
-func (err *sdkError) ABCICode() ABCICodeType {
-	return ToABCICode(err.codespace, err.code)
+	return fmt.Sprintf(`ERROR:
+Codespace: %s
+Code: %d
+Message: %#v
+`, err.codespace, err.code, err.cmnError.Error())
 }
 
 // Implements Error.
@@ -241,26 +243,68 @@ func (err *sdkError) Code() CodeType {
 
 // Implements ABCIError.
 func (err *sdkError) ABCILog() string {
-	return fmt.Sprintf(`=== ABCI Log ===
-Codespace: %v
-Code:      %v
-ABCICode:  %v
-Error:     %#v
-=== /ABCI Log ===
-`, err.codespace, err.code, err.ABCICode(), err.cmnError)
+	cdc := codec.New()
+	errMsg := err.cmnError.Error()
+	jsonErr := humanReadableError{
+		Codespace: err.codespace,
+		Code:      err.code,
+		Message:   errMsg,
+	}
+	bz, er := cdc.MarshalJSON(jsonErr)
+	if er != nil {
+		panic(er)
+	}
+	stringifiedJSON := string(bz)
+	return stringifiedJSON
 }
 
 func (err *sdkError) Result() Result {
 	return Result{
-		Code: err.ABCICode(),
-		Log:  err.ABCILog(),
+		Code:      err.Code(),
+		Codespace: err.Codespace(),
+		Log:       err.ABCILog(),
 	}
 }
 
 // QueryResult allows us to return sdk.Error.QueryResult() in query responses
 func (err *sdkError) QueryResult() abci.ResponseQuery {
 	return abci.ResponseQuery{
-		Code: uint32(err.ABCICode()),
-		Log:  err.ABCILog(),
+		Code:      uint32(err.Code()),
+		Codespace: string(err.Codespace()),
+		Log:       err.ABCILog(),
 	}
+}
+
+//----------------------------------------
+// REST error utilities
+
+// appends a message to the head of the given error
+func AppendMsgToErr(msg string, err string) string {
+	msgIdx := strings.Index(err, "message\":\"")
+	if msgIdx != -1 {
+		errMsg := err[msgIdx+len("message\":\"") : len(err)-2]
+		errMsg = fmt.Sprintf("%s; %s", msg, errMsg)
+		return fmt.Sprintf("%s%s%s",
+			err[:msgIdx+len("message\":\"")],
+			errMsg,
+			err[len(err)-2:],
+		)
+	}
+	return fmt.Sprintf("%s; %s", msg, err)
+}
+
+// returns the index of the message in the ABCI Log
+func mustGetMsgIndex(abciLog string) int {
+	msgIdx := strings.Index(abciLog, "message\":\"")
+	if msgIdx == -1 {
+		panic(fmt.Sprintf("invalid error format: %s", abciLog))
+	}
+	return msgIdx + len("message\":\"")
+}
+
+// parses the error into an object-like struct for exporting
+type humanReadableError struct {
+	Codespace CodespaceType `json:"codespace"`
+	Code      CodeType      `json:"code"`
+	Message   string        `json:"message"`
 }

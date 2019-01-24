@@ -8,7 +8,7 @@ import (
 
 type KeyOutput struct {
 	Name    string         `json:"name"`
-	Type    string         `json:"type"`
+	Type    keys.KeyType         `json:"type"`
 	Address sdk.AccAddress `json:"address"`
 	PubKey  string         `json:"pub_key"`
 	Seed    string         `json:"seed,omitempty"`

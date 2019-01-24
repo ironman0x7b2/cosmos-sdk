@@ -2,37 +2,36 @@
 
 ## State
 
-### Procedures and base types
+### Parameters and base types
 
-`Procedures` define the rule according to which votes are run. There can only 
-be one active procedure at any given time. If governance wants to change a 
-procedure, either to modify a value or add/remove a parameter, a new procedure 
-has to be created and the previous one rendered inactive.
-
+`Parameters` define the rules according to which votes are run. There can only
+be one active parameter set at any given time. If governance wants to change a
+parameter set, either to modify a value or add/remove a parameter field, a new
+parameter set has to be created and the previous one rendered inactive.
 
 ```go
-type DepositProcedure struct {
-  MinDeposit        sdk.Coins           //  Minimum deposit for a proposal to enter voting period. 
-  MaxDepositPeriod  int64               //  Maximum period for Atom holders to deposit on a proposal. Initial value: 2 months
+type DepositParams struct {
+  MinDeposit        sdk.Coins  //  Minimum deposit for a proposal to enter voting period.
+  MaxDepositPeriod  time.Time  //  Maximum period for Atom holders to deposit on a proposal. Initial value: 2 months
 }
 ```
 
 ```go
-type VotingProcedure struct {
-  VotingPeriod      int64               //  Length of the voting period. Initial value: 2 weeks
+type VotingParams struct {
+  VotingPeriod      time.Time  //  Length of the voting period. Initial value: 2 weeks
 }
 ```
 
 ```go
-type TallyingProcedure struct {
-  Threshold         rational.Rational   //  Minimum propotion of Yes votes for proposal to pass. Initial value: 0.5
-  Veto              rational.Rational   //  Minimum proportion of Veto votes to Total votes ratio for proposal to be vetoed. Initial value: 1/3
-  GovernancePenalty sdk.Rat             //  Penalty if validator does not vote
-  GracePeriod       int64               //  If validator entered validator set in this period of blocks before vote ended, governance penalty does not apply
+type TallyParams struct {
+  Quorum            sdk.Dec  //  Minimum percentage of stake that needs to vote for a proposal to be considered valid
+  Threshold         sdk.Dec  //  Minimum proportion of Yes votes for proposal to pass. Initial value: 0.5
+  Veto              sdk.Dec  //  Minimum proportion of Veto votes to Total votes ratio for proposal to be vetoed. Initial value: 1/3
+  GovernancePenalty sdk.Dec  //  Penalty if validator does not vote
 }
 ```
 
-Procedures are stored in a global `GlobalParams` KVStore.
+Parameters are stored in a global `GlobalParams` KVStore.
 
 Additionally, we introduce some basic types:
 
@@ -62,7 +61,7 @@ const (
     ProposalStatusActive    = 0x2   // MinDeposit is reachhed, participants can vote
     ProposalStatusAccepted  = 0x3   // Proposal has been accepted
     ProposalStatusRejected  = 0x4   // Proposal has been rejected
-    ProposalStatusClosed.   = 0x5   // Proposal never reached MinDeposit 
+    ProposalStatusClosed   = 0x5   // Proposal never reached MinDeposit
 )
 ```
 
@@ -70,25 +69,25 @@ const (
 
 ```go
   type Deposit struct {
-    Amount      sdk.Coins       //  Amount of coins deposited by depositer
-    Depositer   crypto.address  //  Address of depositer
+    Amount      sdk.Coins       //  Amount of coins deposited by depositor
+    Depositor   crypto.address  //  Address of depositor
   }
 ```
 
 ### ValidatorGovInfo
 
-This type is used in a temp map when tallying 
+This type is used in a temp map when tallying
 
 ```go
   type ValidatorGovInfo struct {
-    Minus     sdk.Rat
+    Minus     sdk.Dec
     Vote      Vote
   }
 ```
 
 ### Proposals
 
-`Proposals` are an item to be voted on. 
+`Proposals` are an item to be voted on.
 
 ```go
 type Proposal struct {
@@ -97,23 +96,25 @@ type Proposal struct {
   Type                  ProposalType        //  Type of proposal. Initial set {PlainTextProposal, SoftwareUpgradeProposal}
   TotalDeposit          sdk.Coins           //  Current deposit on this proposal. Initial value is set at InitialDeposit
   Deposits              []Deposit           //  List of deposits on the proposal
-  SubmitBlock           int64               //  Height of the block where TxGovSubmitProposal was included
-  Submitter             sdk.Address      //  Address of the submitter
-  
-  VotingStartBlock      int64               //  Height of the block where MinDeposit was reached. -1 if MinDeposit is not reached
+  SubmitTime            time.Time           //  Time of the block where TxGovSubmitProposal was included
+  DepositEndTime        time.Time           //  Time that the DepositPeriod of a proposal would expire
+  Submitter             sdk.AccAddress      //  Address of the submitter
+
+  VotingStartTime       time.Time           //  Time of the block where MinDeposit was reached. time.Time{} if MinDeposit is not reached
+  VotingEndTime         time.Time           //  Time of the block that the VotingPeriod for a proposal will end.
   CurrentStatus         ProposalStatus      //  Current status of the proposal
 
-  YesVotes              sdk.Rat
-  NoVotes               sdk.Rat
-  NoWithVetoVotes       sdk.Rat
-  AbstainVotes          sdk.Rat
+  YesVotes              sdk.Dec
+  NoVotes               sdk.Dec
+  NoWithVetoVotes       sdk.Dec
+  AbstainVotes          sdk.Dec
 }
 ```
 
 We also mention a method to update the tally for a given proposal:
 
 ```go
-  func (proposal Proposal) updateTally(vote byte, amount sdk.Rat)
+  func (proposal Proposal) updateTally(vote byte, amount sdk.Dec)
 ```
 
 ### Stores
@@ -134,47 +135,27 @@ For pseudocode purposes, here are the two function we will use to read or write 
 ### Proposal Processing Queue
 
 **Store:**
-* `ProposalProcessingQueue`: A queue `queue[proposalID]` containing all the 
-  `ProposalIDs` of proposals that reached `MinDeposit`. Each round, the oldest 
-  element of `ProposalProcessingQueue` is checked during `BeginBlock` to see if
-  `CurrentBlock == VotingStartBlock + activeProcedure.VotingPeriod`. If it is, 
-  then the application tallies the votes, compute the votes of each validator and checks if every validator in the valdiator set have voted
-  and, if not, applies `GovernancePenalty`. If the proposal is accepted, deposits are refunded.
-  After that proposal is ejected from `ProposalProcessingQueue` and the next element of the queue is evaluated. 
+* `ProposalProcessingQueue`: A queue `queue[proposalID]` containing all the
+  `ProposalIDs` of proposals that reached `MinDeposit`. Each `EndBlock`, all the proposals
+  that have reached the end of their voting period are processed.
+  To process a finished proposal, the application tallies the votes, compute the votes of
+  each validator and checks if every validator in the valdiator set have voted.
+  If the proposal is accepted, deposits are refunded.
 
 And the pseudocode for the `ProposalProcessingQueue`:
 
 ```go
-  in EndBlock do 
-    
-    checkProposal()  // First call of the recursive function 
-    
-    
-  // Recursive function. First call in BeginBlock
-  func checkProposal()  
-    proposalID = ProposalProcessingQueue.Peek()
-    if (proposalID == nil)
-      return
+  in EndBlock do
 
-    proposal = load(Governance, <proposalID|'proposal'>) // proposal is a const key
-    votingProcedure = load(GlobalParams, 'VotingProcedure')
+    for finishedProposalID in GetAllFinishedProposalIDs(block.Time)
+      proposal = load(Governance, <proposalID|'proposal'>) // proposal is a const key
 
-    if (CurrentBlock == proposal.VotingStartBlock + votingProcedure.VotingPeriod && proposal.CurrentStatus == ProposalStatusActive)
+      validators = Keeper.getAllValidators()
+      tmpValMap := map(sdk.AccAddress)ValidatorGovInfo
 
-    // End of voting period, tally
-
-      ProposalProcessingQueue.pop()
-      validators = 
-
-
-      Keeper.getAllValidators()
-      tmpValMap := map(sdk.Address)ValidatorGovInfo
-
-      // Initiate mapping at 0. Validators that remain at 0 at the end of tally will be punished
+      // Initiate mapping at 0. This is the amount of shares of the validator's vote that will be overridden by their delegator's votes
       for each validator in validators
-        tmpValMap(validator).Minus = 0
-
-
+        tmpValMap(validator.OperatorAddr).Minus = 0
 
       // Tally
       voterIterator = rangeQuery(Governance, <proposalID|'addresses'>) //return all the addresses that voted on the proposal
@@ -190,32 +171,27 @@ And the pseudocode for the `ProposalProcessingQueue`:
         if (isVal)
           tmpValMap(voterAddress).Vote = vote
 
-      tallyingProcedure = load(GlobalParams, 'TallyingProcedure')
+      tallyingParam = load(GlobalParams, 'TallyingParam')
 
-      // Slash validators that did not vote, or update tally if they voted
+      // Update tally if validator voted they voted
       for each validator in validators
-        if (validator.bondHeight < CurrentBlock - tallyingProcedure.GracePeriod)
-        // only slash if validator entered validator set before grace period
-          if (!tmpValMap(validator).HasVoted)
-            slash validator by tallyingProcedure.GovernancePenalty
-          else
-            proposal.updateTally(tmpValMap(validator).Vote, (validator.TotalShares - tmpValMap(validator).Minus))
+        if tmpValMap(validator).HasVoted
+          proposal.updateTally(tmpValMap(validator).Vote, (validator.TotalShares - tmpValMap(validator).Minus))
 
 
 
       // Check if proposal is accepted or rejected
       totalNonAbstain := proposal.YesVotes + proposal.NoVotes + proposal.NoWithVetoVotes
-      if (proposal.Votes.YesVotes/totalNonAbstain > tallyingProcedure.Threshold AND proposal.Votes.NoWithVetoVotes/totalNonAbstain  < tallyingProcedure.Veto)
+      if (proposal.Votes.YesVotes/totalNonAbstain > tallyingParam.Threshold AND proposal.Votes.NoWithVetoVotes/totalNonAbstain  < tallyingParam.Veto)
         //  proposal was accepted at the end of the voting period
         //  refund deposits (non-voters already punished)
         proposal.CurrentStatus = ProposalStatusAccepted
-        for each (amount, depositer) in proposal.Deposits
-          depositer.AtomBalance += amount
+        for each (amount, depositor) in proposal.Deposits
+          depositor.AtomBalance += amount
 
-      else 
+      else
         // proposal was rejected
         proposal.CurrentStatus = ProposalStatusRejected
 
       store(Governance, <proposalID|'proposal'>, proposal)
-      checkProposal()        
 ```

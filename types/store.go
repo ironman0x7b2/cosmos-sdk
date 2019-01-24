@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
@@ -63,9 +64,9 @@ type MultiStore interface { //nolint
 	CacheMultiStore() CacheMultiStore
 
 	// Convenience for fetching substores.
+	// If the store does not exist, panics.
 	GetStore(StoreKey) Store
 	GetKVStore(StoreKey) KVStore
-	GetKVStoreWithGas(GasMeter, StoreKey) KVStore
 
 	// TracingEnabled returns if tracing is enabled for the MultiStore.
 	TracingEnabled() bool
@@ -128,14 +129,11 @@ type KVStore interface {
 	// Has checks if a key exists. Panics on nil key.
 	Has(key []byte) bool
 
-	// Set sets the key. Panics on nil key.
+	// Set sets the key. Panics on nil key or value.
 	Set(key, value []byte)
 
 	// Delete deletes the key. Panics on nil key.
 	Delete(key []byte)
-
-	// Prefix applied keys with the argument
-	Prefix(prefix []byte) KVStore
 
 	// Iterator over a domain of keys in ascending order. End is exclusive.
 	// Start must be less than end, or the Iterator is invalid.
@@ -145,7 +143,7 @@ type KVStore interface {
 	Iterator(start, end []byte) Iterator
 
 	// Iterator over a domain of keys in descending order. End is exclusive.
-	// Start must be greater than end, or the Iterator is invalid.
+	// Start must be less than end, or the Iterator is invalid.
 	// Iterator must be closed by caller.
 	// CONTRACT: No writes may happen within a domain while an iterator exists over it.
 	ReverseIterator(start, end []byte) Iterator
@@ -155,6 +153,16 @@ type KVStore interface {
 
 	// TODO Not yet implemented.
 	// GetSubKVStore(key *storeKey) KVStore
+
+	// Prefix applied keys with the argument
+	// CONTRACT: when Prefix is called on a KVStore more than once,
+	// the concatanation of the prefixes is applied
+	Prefix(prefix []byte) KVStore
+
+	// Gas consuming store
+	// CONTRACT: when Gas is called on a KVStore more than once,
+	// the concatanation of the meters/configs is applied
+	Gas(GasMeter, GasConfig) KVStore
 }
 
 // Alias iterator to db's Iterator for convenience.
@@ -168,6 +176,44 @@ func KVStorePrefixIterator(kvs KVStore, prefix []byte) Iterator {
 // Iterator over all the keys with a certain prefix in descending order.
 func KVStoreReversePrefixIterator(kvs KVStore, prefix []byte) Iterator {
 	return kvs.ReverseIterator(prefix, PrefixEndBytes(prefix))
+}
+
+// Compare two KVstores, return either the first key/value pair
+// at which they differ and whether or not they are equal, skipping
+// value comparison for a set of provided prefixes
+func DiffKVStores(a KVStore, b KVStore, prefixesToSkip [][]byte) (kvA cmn.KVPair, kvB cmn.KVPair, count int64, equal bool) {
+	iterA := a.Iterator(nil, nil)
+	iterB := b.Iterator(nil, nil)
+	count = int64(0)
+	for {
+		if !iterA.Valid() && !iterB.Valid() {
+			break
+		}
+		var kvA, kvB cmn.KVPair
+		if iterA.Valid() {
+			kvA = cmn.KVPair{Key: iterA.Key(), Value: iterA.Value()}
+			iterA.Next()
+		}
+		if iterB.Valid() {
+			kvB = cmn.KVPair{Key: iterB.Key(), Value: iterB.Value()}
+			iterB.Next()
+		}
+		if !bytes.Equal(kvA.Key, kvB.Key) {
+			return kvA, kvB, count, false
+		}
+		compareValue := true
+		for _, prefix := range prefixesToSkip {
+			// Skip value comparison if we matched a prefix
+			if bytes.Equal(kvA.Key[:len(prefix)], prefix) {
+				compareValue = false
+			}
+		}
+		if compareValue && !bytes.Equal(kvA.Value, kvB.Value) {
+			return kvA, kvB, count, false
+		}
+		count++
+	}
+	return cmn.KVPair{}, cmn.KVPair{}, count, true
 }
 
 // CacheKVStore cache-wraps a KVStore.  After calling .Write() on
@@ -184,11 +230,6 @@ type CacheKVStore interface {
 type CommitKVStore interface {
 	Committer
 	KVStore
-}
-
-// Wrapper for StoreKeys to get KVStores
-type KVStoreGetter interface {
-	KVStore(Context) KVStore
 }
 
 //----------------------------------------
@@ -245,7 +286,7 @@ const (
 	StoreTypeMulti StoreType = iota
 	StoreTypeDB
 	StoreTypeIAVL
-	StoreTypePrefix
+	StoreTypeTransient
 )
 
 //----------------------------------------
@@ -279,11 +320,6 @@ func (key *KVStoreKey) String() string {
 	return fmt.Sprintf("KVStoreKey{%p, %s}", key, key.name)
 }
 
-// Implements KVStoreGetter
-func (key *KVStoreKey) KVStore(ctx Context) KVStore {
-	return ctx.KVStore(key)
-}
-
 // PrefixEndBytes returns the []byte that would end a
 // range query for all []byte with a certain prefix
 // Deals with last byte of prefix being FF without overflowing
@@ -310,19 +346,34 @@ func PrefixEndBytes(prefix []byte) []byte {
 	return end
 }
 
-// Getter struct for prefixed stores
-type PrefixStoreGetter struct {
-	key    StoreKey
-	prefix []byte
+// InclusiveEndBytes returns the []byte that would end a
+// range query such that the input would be included
+func InclusiveEndBytes(inclusiveBytes []byte) (exclusiveBytes []byte) {
+	exclusiveBytes = append(inclusiveBytes, byte(0x00))
+	return exclusiveBytes
 }
 
-func NewPrefixStoreGetter(key StoreKey, prefix []byte) PrefixStoreGetter {
-	return PrefixStoreGetter{key, prefix}
+// TransientStoreKey is used for indexing transient stores in a MultiStore
+type TransientStoreKey struct {
+	name string
 }
 
-// Implements sdk.KVStoreGetter
-func (getter PrefixStoreGetter) KVStore(ctx Context) KVStore {
-	return ctx.KVStore(getter.key).Prefix(getter.prefix)
+// Constructs new TransientStoreKey
+// Must return a pointer according to the ocap principle
+func NewTransientStoreKey(name string) *TransientStoreKey {
+	return &TransientStoreKey{
+		name: name,
+	}
+}
+
+// Implements StoreKey
+func (key *TransientStoreKey) Name() string {
+	return key.name
+}
+
+// Implements StoreKey
+func (key *TransientStoreKey) String() string {
+	return fmt.Sprintf("TransientStoreKey{%p, %s}", key, key.name)
 }
 
 //----------------------------------------

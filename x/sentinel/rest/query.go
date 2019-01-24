@@ -9,7 +9,7 @@ import (
 	senttype "github.com/cosmos/cosmos-sdk/x/sentinel/types"
 	"github.com/gorilla/mux"
 
-	"github.com/cosmos/cosmos-sdk/wire"
+	"github.com/cosmos/cosmos-sdk/codec"
 )
 
 const (
@@ -45,7 +45,7 @@ const (
 *}
  */
 
-func querySessionHandlerFn(cdc *wire.Codec, ctx context.CoreContext, k sent.Keeper) http.HandlerFunc {
+func querySessionHandlerFn(cdc *codec.Codec, ctx context.CLIContext, k sent.Keeper) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		vars := mux.Vars(r)
@@ -57,7 +57,7 @@ func querySessionHandlerFn(cdc *wire.Codec, ctx context.CoreContext, k sent.Keep
 			w.Write([]byte("couldn't query session."))
 			return
 		}
-		err = cdc.UnmarshalBinary(res, &clientSession)
+		err = cdc.UnmarshalBinaryBare(res, &clientSession)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("couldn't marshall query result. Error: "))

@@ -11,6 +11,8 @@ import (
 
 // cacheMultiStore holds many cache-wrapped stores.
 // Implements MultiStore.
+// NOTE: a cacheMultiStore (and MultiStores in general) should never expose the
+// keys for the substores.
 type cacheMultiStore struct {
 	db         CacheKVStore
 	stores     map[StoreKey]CacheWrap
@@ -134,6 +136,6 @@ func (cms cacheMultiStore) GetKVStore(key StoreKey) KVStore {
 }
 
 // Implements MultiStore.
-func (cms cacheMultiStore) GetKVStoreWithGas(meter sdk.GasMeter, key StoreKey) KVStore {
-	return NewGasKVStore(meter, cms.GetKVStore(key))
+func (cms cacheMultiStore) GetKVStoreWithGas(meter sdk.GasMeter, config sdk.GasConfig, key StoreKey) KVStore {
+	return NewGasKVStore(meter, config, cms.GetKVStore(key))
 }

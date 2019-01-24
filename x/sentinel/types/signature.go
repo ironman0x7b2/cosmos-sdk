@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/libs/bech32"
-	"fmt"
-	"github.com/tendermint/tendermint/crypto/encoding/amino"
 )
 
 type ClientSignature struct {
@@ -18,10 +15,9 @@ type ClientSignature struct {
 }
 type Signature struct {
 	Pubkey    crypto.PubKey    `json:"pub_key"`
-	Signature crypto.Signature `json:"signature"`
 }
 
-func NewClientSignature(coins sdk.Coins, sesid []byte, counter int64, pubkey crypto.PubKey, sign crypto.Signature, isfinal bool) ClientSignature {
+func NewClientSignature(coins sdk.Coins, sesid []byte, counter int64, pubkey crypto.PubKey,  isfinal bool) ClientSignature {
 	return ClientSignature{
 		Coins:     coins,
 		Sessionid: sesid,
@@ -29,7 +25,6 @@ func NewClientSignature(coins sdk.Coins, sesid []byte, counter int64, pubkey cry
 		IsFinal:   isfinal,
 		Signature: Signature{
 			Pubkey:    pubkey,
-			Signature: sign,
 		},
 	}
 }
@@ -77,26 +72,3 @@ func GetVPNSignature(address sdk.AccAddress, ip string, ppgb int64, netspeed int
 	}
 	return sdk.MustSortJSON(bz)
 }
-func GetBech32Signature(sign crypto.Signature) (string, error) {
-	return bech32.ConvertAndEncode("", sign.Bytes())
-
-}
-
-func GetBech64Signature(address string) (pk crypto.Signature, err error) {
-	hrp, bz, err := DecodeAndConvert(address)
-	if err != nil {
-		return nil, err
-	}
-	if hrp != "" {
-		return nil, fmt.Errorf("invalid bech32 prefix. Expected %s, Got %s", "", hrp)
-	}
-
-	pk, err = cryptoAmino.SignatureFromBytes(bz)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return pk, nil
-}
-

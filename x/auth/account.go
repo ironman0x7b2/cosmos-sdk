@@ -3,13 +3,18 @@ package auth
 import (
 	"errors"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/wire"
 	"github.com/tendermint/tendermint/crypto"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// Account is a standard account using a sequence number for replay protection
-// and a pubkey for authentication.
+// Account is an interface used to store coins at a given address within state.
+// It presumes a notion of sequence numbers for replay protection,
+// a notion of account numbers for replay protection for previously pruned accounts,
+// and a pubkey for authentication purposes.
+//
+// Many complex conditions can be used in the concrete struct which implements Account.
 type Account interface {
 	GetAddress() sdk.AccAddress
 	SetAddress(sdk.AccAddress) error // errors if already set.
@@ -17,11 +22,11 @@ type Account interface {
 	GetPubKey() crypto.PubKey // can return nil.
 	SetPubKey(crypto.PubKey) error
 
-	GetAccountNumber() int64
-	SetAccountNumber(int64) error
+	GetAccountNumber() uint64
+	SetAccountNumber(uint64) error
 
-	GetSequence() int64
-	SetSequence(int64) error
+	GetSequence() uint64
+	SetSequence(uint64) error
 
 	GetCoins() sdk.Coins
 	SetCoins(sdk.Coins) error
@@ -35,15 +40,17 @@ type AccountDecoder func(accountBytes []byte) (Account, error)
 
 var _ Account = (*BaseAccount)(nil)
 
-// BaseAccount - base account structure.
-// Extend this by embedding this in your AppAccount.
-// See the examples/basecoin/types/account.go for an example.
+// BaseAccount - a base account structure.
+// This can be extended by embedding within in your AppAccount.
+// There are examples of this in: examples/basecoin/types/account.go.
+// However one doesn't have to use BaseAccount as long as your struct
+// implements Account.
 type BaseAccount struct {
 	Address       sdk.AccAddress `json:"address"`
 	Coins         sdk.Coins      `json:"coins"`
 	PubKey        crypto.PubKey  `json:"public_key"`
-	AccountNumber int64          `json:"account_number"`
-	Sequence      int64          `json:"sequence"`
+	AccountNumber uint64         `json:"account_number"`
+	Sequence      uint64         `json:"sequence"`
 }
 
 // Prototype function for BaseAccount
@@ -94,23 +101,23 @@ func (acc *BaseAccount) SetCoins(coins sdk.Coins) error {
 }
 
 // Implements Account
-func (acc *BaseAccount) GetAccountNumber() int64 {
+func (acc *BaseAccount) GetAccountNumber() uint64 {
 	return acc.AccountNumber
 }
 
 // Implements Account
-func (acc *BaseAccount) SetAccountNumber(accNumber int64) error {
+func (acc *BaseAccount) SetAccountNumber(accNumber uint64) error {
 	acc.AccountNumber = accNumber
 	return nil
 }
 
 // Implements sdk.Account.
-func (acc *BaseAccount) GetSequence() int64 {
+func (acc *BaseAccount) GetSequence() uint64 {
 	return acc.Sequence
 }
 
 // Implements sdk.Account.
-func (acc *BaseAccount) SetSequence(seq int64) error {
+func (acc *BaseAccount) SetSequence(seq uint64) error {
 	acc.Sequence = seq
 	return nil
 }
@@ -118,9 +125,9 @@ func (acc *BaseAccount) SetSequence(seq int64) error {
 //----------------------------------------
 // Wire
 
-// Most users shouldn't use this, but this comes handy for tests.
-func RegisterBaseAccount(cdc *wire.Codec) {
+// Most users shouldn't use this, but this comes in handy for tests.
+func RegisterBaseAccount(cdc *codec.Codec) {
 	cdc.RegisterInterface((*Account)(nil), nil)
 	cdc.RegisterConcrete(&BaseAccount{}, "cosmos-sdk/BaseAccount", nil)
-	wire.RegisterCrypto(cdc)
+	codec.RegisterCrypto(cdc)
 }

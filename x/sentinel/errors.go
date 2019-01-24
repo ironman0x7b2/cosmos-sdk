@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	DefaultCodeSpace sdk.CodespaceType = 19
+	DefaultCodeSpace sdk.CodespaceType
 
 	CodeInvalidPubKey          sdk.CodeType = 1
 	CodeTimeInterval           sdk.CodeType = 2

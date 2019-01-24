@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"strings"
+
 	amino "github.com/tendermint/go-amino"
 	tmclient "github.com/tendermint/tendermint/rpc/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
@@ -108,8 +110,6 @@ func waitForHeight(height int64, url string) {
 		var resultBlock ctypes.ResultBlock
 		err = cdc.UnmarshalJSON(body, &resultBlock)
 		if err != nil {
-			fmt.Println("RES", res)
-			fmt.Println("BODY", string(body))
 			panic(err)
 		}
 
@@ -134,7 +134,7 @@ func WaitForTMStart(port string) {
 }
 
 // WaitForStart waits for the node to start by pinging the url
-// every 100ms for 5s until it returns 200. If it takes longer than 5s,
+// every 100ms for 10s until it returns 200. If it takes longer than 5s,
 // it panics.
 func WaitForStart(url string) {
 	var err error
@@ -142,7 +142,7 @@ func WaitForStart(url string) {
 	// ping the status endpoint a few times a second
 	// for a few seconds until we get a good response.
 	// otherwise something probably went wrong
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 100; i++ {
 		time.Sleep(time.Millisecond * 100)
 
 		var res *http.Response
@@ -183,6 +183,17 @@ func WaitForRPC(laddr string) {
 		fmt.Printf("Waiting for RPC server to start on %s:%v\n", laddr, err)
 		time.Sleep(time.Millisecond)
 	}
+}
+
+// ExtractPortFromAddress extract port from listenAddress
+// The listenAddress must be some strings like tcp://0.0.0.0:12345
+func ExtractPortFromAddress(listenAddress string) string {
+	stringList := strings.Split(listenAddress, ":")
+	length := len(stringList)
+	if length != 3 {
+		panic(fmt.Errorf("expected listen address: tcp://0.0.0.0:12345, got %s", listenAddress))
+	}
+	return stringList[2]
 }
 
 var cdc = amino.NewCodec()

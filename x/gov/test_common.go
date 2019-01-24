@@ -6,6 +6,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/cosmos/cosmos-sdk/x/params"
+
 	"github.com/stretchr/testify/require"
 
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -15,29 +17,37 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/mock"
 	"github.com/cosmos/cosmos-sdk/x/stake"
+	stakeTypes "github.com/cosmos/cosmos-sdk/x/stake/types"
 )
 
 // initialize the mock application for this module
 func getMockApp(t *testing.T, numGenAccs int) (*mock.App, Keeper, stake.Keeper, []sdk.AccAddress, []crypto.PubKey, []crypto.PrivKey) {
 	mapp := mock.NewApp()
 
-	stake.RegisterWire(mapp.Cdc)
-	RegisterWire(mapp.Cdc)
+	stake.RegisterCodec(mapp.Cdc)
+	RegisterCodec(mapp.Cdc)
 
+	keyGlobalParams := sdk.NewKVStoreKey("params")
+	tkeyGlobalParams := sdk.NewTransientStoreKey("transient_params")
 	keyStake := sdk.NewKVStoreKey("stake")
+	tkeyStake := sdk.NewTransientStoreKey("transient_stake")
 	keyGov := sdk.NewKVStoreKey("gov")
 
-	ck := bank.NewKeeper(mapp.AccountMapper)
-	sk := stake.NewKeeper(mapp.Cdc, keyStake, ck, mapp.RegisterCodespace(stake.DefaultCodespace))
-	keeper := NewKeeper(mapp.Cdc, keyGov, ck, sk, DefaultCodespace)
-	mapp.Router().AddRoute("gov", NewHandler(keeper))
+	pk := params.NewKeeper(mapp.Cdc, keyGlobalParams, tkeyGlobalParams)
+	ck := bank.NewBaseKeeper(mapp.AccountKeeper)
+	sk := stake.NewKeeper(mapp.Cdc, keyStake, tkeyStake, ck, pk.Subspace(stake.DefaultParamspace), stake.DefaultCodespace)
+	keeper := NewKeeper(mapp.Cdc, keyGov, pk, pk.Subspace("testgov"), ck, sk, DefaultCodespace)
 
-	require.NoError(t, mapp.CompleteSetup([]*sdk.KVStoreKey{keyStake, keyGov}))
+	mapp.Router().AddRoute("gov", NewHandler(keeper))
+	mapp.QueryRouter().AddRoute("gov", NewQuerier(keeper))
 
 	mapp.SetEndBlocker(getEndBlocker(keeper))
 	mapp.SetInitChainer(getInitChainer(mapp, keeper, sk))
 
-	genAccs, addrs, pubKeys, privKeys := mock.CreateGenAccounts(numGenAccs, sdk.Coins{sdk.NewCoin("steak", 42)})
+	require.NoError(t, mapp.CompleteSetup(keyStake, tkeyStake, keyGov, keyGlobalParams, tkeyGlobalParams))
+
+	genAccs, addrs, pubKeys, privKeys := mock.CreateGenAccounts(numGenAccs, sdk.Coins{sdk.NewInt64Coin(stakeTypes.DefaultBondDenom, 42)})
+
 	mock.SetGenesis(mapp, genAccs)
 
 	return mapp, keeper, sk, addrs, pubKeys, privKeys
@@ -46,7 +56,7 @@ func getMockApp(t *testing.T, numGenAccs int) (*mock.App, Keeper, stake.Keeper, 
 // gov and stake endblocker
 func getEndBlocker(keeper Keeper) sdk.EndBlocker {
 	return func(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
-		tags, _ := EndBlocker(ctx, keeper)
+		tags := EndBlocker(ctx, keeper)
 		return abci.ResponseEndBlock{
 			Tags: tags,
 		}
@@ -59,14 +69,30 @@ func getInitChainer(mapp *mock.App, keeper Keeper, stakeKeeper stake.Keeper) sdk
 		mapp.InitChainer(ctx, req)
 
 		stakeGenesis := stake.DefaultGenesisState()
-		stakeGenesis.Pool.LooseTokens = sdk.NewRat(100000)
+		stakeGenesis.Pool.LooseTokens = sdk.NewDec(100000)
 
-		err := stake.InitGenesis(ctx, stakeKeeper, stakeGenesis)
+		validators, err := stake.InitGenesis(ctx, stakeKeeper, stakeGenesis)
 		if err != nil {
 			panic(err)
 		}
 		InitGenesis(ctx, keeper, DefaultGenesisState())
-		return abci.ResponseInitChain{}
+		return abci.ResponseInitChain{
+			Validators: validators,
+		}
+	}
+}
+
+// TODO: Remove once address interface has been implemented (ref: #2186)
+func SortValAddresses(addrs []sdk.ValAddress) {
+	var byteAddrs [][]byte
+	for _, addr := range addrs {
+		byteAddrs = append(byteAddrs, addr.Bytes())
+	}
+
+	SortByteArrays(byteAddrs)
+
+	for i, byteAddr := range byteAddrs {
+		addrs[i] = byteAddr
 	}
 }
 

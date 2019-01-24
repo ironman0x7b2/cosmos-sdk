@@ -3,8 +3,6 @@ package keeper
 import (
 	"fmt"
 
-	"github.com/tendermint/tendermint/crypto"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/stake/types"
 )
@@ -12,7 +10,7 @@ import (
 // Implements ValidatorSet
 var _ sdk.ValidatorSet = Keeper{}
 
-// iterate through the active validator set and perform the provided function
+// iterate through the validator set and perform the provided function
 func (k Keeper) IterateValidators(ctx sdk.Context, fn func(index int64, validator sdk.Validator) (stop bool)) {
 	store := ctx.KVStore(k.storeKey)
 	iterator := sdk.KVStorePrefixIterator(store, ValidatorsKey)
@@ -29,13 +27,35 @@ func (k Keeper) IterateValidators(ctx sdk.Context, fn func(index int64, validato
 	iterator.Close()
 }
 
-// iterate through the active validator set and perform the provided function
-func (k Keeper) IterateValidatorsBonded(ctx sdk.Context, fn func(index int64, validator sdk.Validator) (stop bool)) {
+// iterate through the bonded validator set and perform the provided function
+func (k Keeper) IterateBondedValidatorsByPower(ctx sdk.Context, fn func(index int64, validator sdk.Validator) (stop bool)) {
 	store := ctx.KVStore(k.storeKey)
-	iterator := sdk.KVStorePrefixIterator(store, ValidatorsBondedIndexKey)
+	maxValidators := k.MaxValidators(ctx)
+
+	iterator := sdk.KVStoreReversePrefixIterator(store, ValidatorsByPowerIndexKey)
+	defer iterator.Close()
+
+	i := int64(0)
+	for ; iterator.Valid() && i < int64(maxValidators); iterator.Next() {
+		address := iterator.Value()
+		validator := k.mustGetValidator(ctx, address)
+
+		if validator.Status == sdk.Bonded {
+			stop := fn(i, validator) // XXX is this safe will the validator unexposed fields be able to get written to?
+			if stop {
+				break
+			}
+			i++
+		}
+	}
+}
+
+// iterate through the active validator set and perform the provided function
+func (k Keeper) IterateLastValidators(ctx sdk.Context, fn func(index int64, validator sdk.Validator) (stop bool)) {
+	iterator := k.LastValidatorsIterator(ctx)
 	i := int64(0)
 	for ; iterator.Valid(); iterator.Next() {
-		address := GetAddressFromValBondedIndexKey(iterator.Key())
+		address := AddressFromLastValidatorPowerKey(iterator.Key())
 		validator, found := k.GetValidator(ctx, address)
 		if !found {
 			panic(fmt.Sprintf("validator record not found for address: %v\n", address))
@@ -51,7 +71,7 @@ func (k Keeper) IterateValidatorsBonded(ctx sdk.Context, fn func(index int64, va
 }
 
 // get the sdk.validator for a particular address
-func (k Keeper) Validator(ctx sdk.Context, address sdk.AccAddress) sdk.Validator {
+func (k Keeper) Validator(ctx sdk.Context, address sdk.ValAddress) sdk.Validator {
 	val, found := k.GetValidator(ctx, address)
 	if !found {
 		return nil
@@ -60,18 +80,31 @@ func (k Keeper) Validator(ctx sdk.Context, address sdk.AccAddress) sdk.Validator
 }
 
 // get the sdk.validator for a particular pubkey
-func (k Keeper) ValidatorByPubKey(ctx sdk.Context, pubkey crypto.PubKey) sdk.Validator {
-	val, found := k.GetValidatorByPubKey(ctx, pubkey)
+func (k Keeper) ValidatorByConsAddr(ctx sdk.Context, addr sdk.ConsAddress) sdk.Validator {
+	val, found := k.GetValidatorByConsAddr(ctx, addr)
 	if !found {
 		return nil
 	}
 	return val
 }
 
-// total power from the bond
-func (k Keeper) TotalPower(ctx sdk.Context) sdk.Rat {
+// total power from the bond (not last, but current)
+func (k Keeper) TotalPower(ctx sdk.Context) sdk.Dec {
 	pool := k.GetPool(ctx)
 	return pool.BondedTokens
+}
+
+// total power from the bond
+func (k Keeper) BondedRatio(ctx sdk.Context) sdk.Dec {
+	pool := k.GetPool(ctx)
+	return pool.BondedRatio()
+}
+
+// when minting new tokens
+func (k Keeper) InflateSupply(ctx sdk.Context, newTokens sdk.Dec) {
+	pool := k.GetPool(ctx)
+	pool.LooseTokens = pool.LooseTokens.Add(newTokens)
+	k.SetPool(ctx, pool)
 }
 
 //__________________________________________________________________________
@@ -86,23 +119,25 @@ func (k Keeper) GetValidatorSet() sdk.ValidatorSet {
 }
 
 // get the delegation for a particular set of delegator and validator addresses
-func (k Keeper) Delegation(ctx sdk.Context, addrDel sdk.AccAddress, addrVal sdk.AccAddress) sdk.Delegation {
+func (k Keeper) Delegation(ctx sdk.Context, addrDel sdk.AccAddress, addrVal sdk.ValAddress) sdk.Delegation {
 	bond, ok := k.GetDelegation(ctx, addrDel, addrVal)
 	if !ok {
 		return nil
 	}
+
 	return bond
 }
 
-// iterate through the active validator set and perform the provided function
-func (k Keeper) IterateDelegations(ctx sdk.Context, delAddr sdk.AccAddress, fn func(index int64, delegation sdk.Delegation) (stop bool)) {
+// iterate through all of the delegations from a delegator
+func (k Keeper) IterateDelegations(ctx sdk.Context, delAddr sdk.AccAddress,
+	fn func(index int64, del sdk.Delegation) (stop bool)) {
+
 	store := ctx.KVStore(k.storeKey)
-	key := GetDelegationsKey(delAddr)
-	iterator := sdk.KVStorePrefixIterator(store, key)
-	i := int64(0)
-	for ; iterator.Valid(); iterator.Next() {
-		delegation := types.MustUnmarshalDelegation(k.cdc, iterator.Key(), iterator.Value())
-		stop := fn(i, delegation) // XXX is this safe will the fields be able to get written to?
+	delegatorPrefixKey := GetDelegationsKey(delAddr)
+	iterator := sdk.KVStorePrefixIterator(store, delegatorPrefixKey) //smallest to largest
+	for i := int64(0); iterator.Valid(); iterator.Next() {
+		del := types.MustUnmarshalDelegation(k.cdc, iterator.Key(), iterator.Value())
+		stop := fn(i, del)
 		if stop {
 			break
 		}

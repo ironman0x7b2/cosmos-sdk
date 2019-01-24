@@ -1,8 +1,16 @@
 package main
 
 import (
-	"github.com/spf13/cobra"
+	"fmt"
+	"net/http"
+	"os"
+	"path"
 
+	"github.com/rakyll/statik/fs"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
+	amino "github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/libs/cli"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -10,142 +18,185 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/lcd"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
 	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/cmd/gaia/app"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/version"
+
+	auth "github.com/cosmos/cosmos-sdk/x/auth/client/rest"
+	bank "github.com/cosmos/cosmos-sdk/x/bank/client/rest"
+	gov "github.com/cosmos/cosmos-sdk/x/gov/client/rest"
+	slashing "github.com/cosmos/cosmos-sdk/x/slashing/client/rest"
+	stake "github.com/cosmos/cosmos-sdk/x/stake/client/rest"
+	sentype "github.com/cosmos/cosmos-sdk/x/sentinel"
+	sentinel "github.com/cosmos/cosmos-sdk/x/sentinel/rest"
+
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
 	bankcmd "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
-	govcmd "github.com/cosmos/cosmos-sdk/x/gov/client/cli"
-	ibccmd "github.com/cosmos/cosmos-sdk/x/ibc/client/cli"
-	slashingcmd "github.com/cosmos/cosmos-sdk/x/slashing/client/cli"
-	stakecmd "github.com/cosmos/cosmos-sdk/x/stake/client/cli"
+	distClient "github.com/cosmos/cosmos-sdk/x/distribution/client"
+	govClient "github.com/cosmos/cosmos-sdk/x/gov/client"
+	slashingClient "github.com/cosmos/cosmos-sdk/x/slashing/client"
+	stakeClient "github.com/cosmos/cosmos-sdk/x/stake/client"
 
-	"github.com/cosmos/cosmos-sdk/cmd/gaia/app"
+
+	_ "github.com/cosmos/cosmos-sdk/client/lcd/statik"
 )
 
-// rootCmd is the entry point for this binary
-var (
-	rootCmd = &cobra.Command{
-		Use:   "gaiacli",
-		Short: "Gaia light-client",
-	}
+const (
+	storeAcc      = "acc"
+	storeGov      = "gov"
+	storeSlashing = "slashing"
+	storeStake    = "stake"
+	storeDist     = "distr"
 )
 
 func main() {
+	// Configure cobra to sort commands
 	cobra.EnableCommandSorting = false
+
+	// Instantiate the codec for the command line application
 	cdc := app.MakeCodec()
+
+	// Read in the configuration file for the sdk
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount(sdk.Bech32PrefixAccAddr, sdk.Bech32PrefixAccPub)
+	config.SetBech32PrefixForValidator(sdk.Bech32PrefixValAddr, sdk.Bech32PrefixValPub)
+	config.SetBech32PrefixForConsensusNode(sdk.Bech32PrefixConsAddr, sdk.Bech32PrefixConsPub)
+	config.Seal()
 
 	// TODO: setup keybase, viper object, etc. to be passed into
 	// the below functions and eliminate global vars, like we do
 	// with the cdc
 
-	// add standard rpc commands
-	rpc.AddCommands(rootCmd)
-
-	//Add state commands
-	tendermintCmd := &cobra.Command{
-		Use:   "tendermint",
-		Short: "Tendermint state querying subcommands",
-	}
-	tendermintCmd.AddCommand(
-		rpc.BlockCommand(),
-		rpc.ValidatorCommand(),
-	)
-	tx.AddCommands(tendermintCmd, cdc)
-
-	//Add IBC commands
-	ibcCmd := &cobra.Command{
-		Use:   "ibc",
-		Short: "Inter-Blockchain Communication subcommands",
-	}
-	ibcCmd.AddCommand(
-		client.PostCommands(
-			ibccmd.IBCTransferCmd(cdc),
-			ibccmd.IBCRelayCmd(cdc),
-		)...)
-
-	advancedCmd := &cobra.Command{
-		Use:   "advanced",
-		Short: "Advanced subcommands",
+	// Module clients hold cli commnads (tx,query) and lcd routes
+	// TODO: Make the lcd command take a list of ModuleClient
+	mc := []sdk.ModuleClients{
+		govClient.NewModuleClient(storeGov, cdc),
+		distClient.NewModuleClient(storeDist, cdc),
+		stakeClient.NewModuleClient(storeStake, cdc),
+		slashingClient.NewModuleClient(storeSlashing, cdc),
 	}
 
-	advancedCmd.AddCommand(
-		tendermintCmd,
-		ibcCmd,
-		lcd.ServeCommand(cdc),
-	)
+	rootCmd := &cobra.Command{
+		Use:   "gaiacli",
+		Short: "Command line interface for interacting with gaiad",
+	}
+
+	// Construct Root Command
 	rootCmd.AddCommand(
-		advancedCmd,
+		rpc.InitClientCommand(),
+		rpc.StatusCommand(),
+		client.ConfigCmd(),
+		queryCmd(cdc, mc),
+		txCmd(cdc, mc),
 		client.LineBreak,
-	)
-
-	//Add stake commands
-	stakeCmd := &cobra.Command{
-		Use:   "stake",
-		Short: "Stake and validation subcommands",
-	}
-	stakeCmd.AddCommand(
-		client.GetCommands(
-			stakecmd.GetCmdQueryValidator("stake", cdc),
-			stakecmd.GetCmdQueryValidators("stake", cdc),
-			stakecmd.GetCmdQueryDelegation("stake", cdc),
-			stakecmd.GetCmdQueryDelegations("stake", cdc),
-			slashingcmd.GetCmdQuerySigningInfo("slashing", cdc),
-		)...)
-	stakeCmd.AddCommand(
-		client.PostCommands(
-			stakecmd.GetCmdCreateValidator(cdc),
-			stakecmd.GetCmdEditValidator(cdc),
-			stakecmd.GetCmdDelegate(cdc),
-			stakecmd.GetCmdUnbond("stake", cdc),
-			stakecmd.GetCmdRedelegate("stake", cdc),
-			slashingcmd.GetCmdUnrevoke(cdc),
-		)...)
-	rootCmd.AddCommand(
-		stakeCmd,
-	)
-
-	//Add stake commands
-	govCmd := &cobra.Command{
-		Use:   "gov",
-		Short: "Governance and voting subcommands",
-	}
-	govCmd.AddCommand(
-		client.GetCommands(
-			govcmd.GetCmdQueryProposal("gov", cdc),
-			govcmd.GetCmdQueryVote("gov", cdc),
-			govcmd.GetCmdQueryVotes("gov", cdc),
-		)...)
-	govCmd.AddCommand(
-		client.PostCommands(
-			govcmd.GetCmdSubmitProposal(cdc),
-			govcmd.GetCmdDeposit(cdc),
-			govcmd.GetCmdVote(cdc),
-		)...)
-	rootCmd.AddCommand(
-		govCmd,
-	)
-
-	//Add auth and bank commands
-	rootCmd.AddCommand(
-		client.GetCommands(
-			authcmd.GetAccountCmd("acc", cdc, authcmd.GetAccountDecoder(cdc)),
-		)...)
-	rootCmd.AddCommand(
-		client.PostCommands(
-			bankcmd.SendTxCmd(cdc),
-		)...)
-
-	// add proxy, version and key info
-	rootCmd.AddCommand(
+		lcd.ServeCommand(cdc, registerRoutes),
+		client.LineBreak,
 		keys.Commands(),
 		client.LineBreak,
 		version.VersionCmd,
 	)
 
-	// prepare and add flags
+	// Add flags and prefix all env exposed with GA
 	executor := cli.PrepareMainCmd(rootCmd, "GA", app.DefaultCLIHome)
-	err := executor.Execute()
+	err := initConfig(rootCmd)
 	if err != nil {
-		// handle with #870
 		panic(err)
 	}
+
+	err = executor.Execute()
+	if err != nil {
+		fmt.Printf("Failed executing CLI command: %s, exiting...\n", err)
+		os.Exit(1)
+	}
+}
+
+func queryCmd(cdc *amino.Codec, mc []sdk.ModuleClients) *cobra.Command {
+	queryCmd := &cobra.Command{
+		Use:     "query",
+		Aliases: []string{"q"},
+		Short:   "Querying subcommands",
+	}
+
+	queryCmd.AddCommand(
+		rpc.ValidatorCommand(),
+		rpc.BlockCommand(),
+		tx.SearchTxCmd(cdc),
+		tx.QueryTxCmd(cdc),
+		client.LineBreak,
+		authcmd.GetAccountCmd(storeAcc, cdc),
+	)
+
+	for _, m := range mc {
+		queryCmd.AddCommand(m.GetQueryCmd())
+	}
+
+	return queryCmd
+}
+
+func txCmd(cdc *amino.Codec, mc []sdk.ModuleClients) *cobra.Command {
+	txCmd := &cobra.Command{
+		Use:   "tx",
+		Short: "Transactions subcommands",
+	}
+
+	txCmd.AddCommand(
+		bankcmd.SendTxCmd(cdc),
+		client.LineBreak,
+		authcmd.GetSignCommand(cdc),
+		bankcmd.GetBroadcastCommand(cdc),
+		client.LineBreak,
+	)
+
+	for _, m := range mc {
+		txCmd.AddCommand(m.GetTxCmd())
+	}
+
+	return txCmd
+}
+
+// registerRoutes registers the routes from the different modules for the LCD.
+// NOTE: details on the routes added for each module are in the module documentation
+// NOTE: If making updates here you also need to update the test helper in client/lcd/test_helper.go
+func registerRoutes(rs *lcd.RestServer) {
+	keeper := sentype.Keeper{}
+	registerSwaggerUI(rs)
+	keys.RegisterRoutes(rs.Mux, rs.CliCtx.Indent)
+	rpc.RegisterRoutes(rs.CliCtx, rs.Mux)
+	tx.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
+	auth.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, storeAcc)
+	bank.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, rs.KeyBase)
+	stake.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, rs.KeyBase)
+	slashing.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, rs.KeyBase)
+	gov.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
+	sentinel.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, keeper)
+}
+
+func registerSwaggerUI(rs *lcd.RestServer) {
+	statikFS, err := fs.New()
+	if err != nil {
+		panic(err)
+	}
+	staticServer := http.FileServer(statikFS)
+	rs.Mux.PathPrefix("/swagger-ui/").Handler(http.StripPrefix("/swagger-ui/", staticServer))
+}
+
+func initConfig(cmd *cobra.Command) error {
+	home, err := cmd.PersistentFlags().GetString(cli.HomeFlag)
+	if err != nil {
+		return err
+	}
+
+	cfgFile := path.Join(home, "config", "config.toml")
+	if _, err := os.Stat(cfgFile); err == nil {
+		viper.SetConfigFile(cfgFile)
+
+		if err := viper.ReadInConfig(); err != nil {
+			return err
+		}
+	}
+
+	if err := viper.BindPFlag(cli.EncodingFlag, cmd.PersistentFlags().Lookup(cli.EncodingFlag)); err != nil {
+		return err
+	}
+	return viper.BindPFlag(cli.OutputFlag, cmd.PersistentFlags().Lookup(cli.OutputFlag))
 }

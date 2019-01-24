@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -10,11 +11,13 @@ import (
 	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
-// Execute the command, return stdout, logging stdout/err to t.
-func ExecuteT(t *testing.T, cmd string) (out string) {
+// ExecuteT executes the command, pipes any input to STDIN and return STDOUT,
+// logging STDOUT/STDERR to t.
+// nolint: errcheck
+func ExecuteT(t *testing.T, cmd, input string) (stdout, stderr string) {
 	t.Log("Running", cmn.Cyan(cmd))
 
-	// Split cmd to name and args.
+	// split cmd to name and args
 	split := strings.Split(cmd, " ")
 	require.True(t, len(split) > 0, "no command provided")
 	name, args := split[0], []string(nil)
@@ -22,28 +25,35 @@ func ExecuteT(t *testing.T, cmd string) (out string) {
 		args = split[1:]
 	}
 
-	// Start process and wait.
 	proc, err := StartProcess("", name, args)
 	require.NoError(t, err)
 
-	// Get the output.
+	// if input is provided, pass it to STDIN and close the pipe
+	if input != "" {
+		_, err = io.WriteString(proc.StdinPipe, input)
+		require.NoError(t, err)
+		proc.StdinPipe.Close()
+	}
+
 	outbz, errbz, err := proc.ReadAll()
 	if err != nil {
 		fmt.Println("Err on proc.ReadAll()", err, args)
 	}
+
 	proc.Wait()
 
-	// Log output.
 	if len(outbz) > 0 {
 		t.Log("Stdout:", cmn.Green(string(outbz)))
 	}
+
 	if len(errbz) > 0 {
 		t.Log("Stderr:", cmn.Red(string(errbz)))
 	}
 
-	// Collect STDOUT output.
-	out = strings.Trim(string(outbz), "\n") //trim any new lines
-	return out
+	stdout = strings.Trim(string(outbz), "\n")
+	stderr = strings.Trim(string(errbz), "\n")
+
+	return
 }
 
 // Execute the command, launch goroutines to log stdout/err to t.
@@ -82,8 +92,14 @@ func GoExecuteTWithStdout(t *testing.T, cmd string) (proc *Process) {
 	require.NoError(t, err)
 
 	// Without this, the test halts ?!
+	// (theory: because stdout and/or err aren't connected to anything the process halts)
 	go func() {
 		_, err := ioutil.ReadAll(proc.StdoutPipe)
+		if err != nil {
+			fmt.Println("-------------ERR-----------------------", err)
+			return
+		}
+		_, err = ioutil.ReadAll(proc.StderrPipe)
 		if err != nil {
 			fmt.Println("-------------ERR-----------------------", err)
 			return

@@ -13,14 +13,8 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 )
 
-//
-
-//
-//
-//
-//
-
 /// USE gofmt command for styling/structing the go code
+
 
 type MsgRegisterVpnService struct {
 	From       sdk.AccAddress
@@ -345,12 +339,12 @@ type MsgGetVpnPayment struct {
 	Coins     sdk.Coins
 	Sessionid []byte
 	Counter   int64
-	Signature crypto.Signature
+	Signature []byte
 	From      sdk.AccAddress
 	IsFinal   bool
 }
 
-func NewMsgGetVpnPayment(coin sdk.Coins, sid []byte, counter int64, addr sdk.AccAddress, sign crypto.Signature, isfinal bool) MsgGetVpnPayment {
+func NewMsgGetVpnPayment(coin sdk.Coins, sid []byte, counter int64, addr sdk.AccAddress, sign []byte, isfinal bool) MsgGetVpnPayment {
 	return MsgGetVpnPayment{
 		Coins:     coin,
 		Sessionid: sid,
