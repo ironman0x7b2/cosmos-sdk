@@ -13,8 +13,8 @@ func NewHandler(k Keeper) sdk.Handler {
 		//	return handleDeleteVpnUser(ctx, k, msg)
 		case MsgRegisterMasterNode:
 			return handleMsgRegisterMasterNode(ctx, k, msg)
-		//case MsgDeleteMasterNode:
-		//	return handleMsgDeleteMasterNode(ctx, k, msg)
+		case MsgDeleteMasterNode:
+			return handleMsgDeleteMasterNode(ctx, k, msg)
 		//case MsgPayVpnService:
 		//	return handleMsgPayVpnService(ctx, k, msg)
 		//case MsgGetVpnPayment:
@@ -82,18 +82,18 @@ func handleRegisterVpnService(ctx sdk.Context, keeper Keeper, msg MsgRegisterVpn
 //	}
 //}
 //
-//func handleMsgDeleteMasterNode(ctx sdk.Context, keeper Keeper, msg MsgDeleteMasterNode) sdk.Result {
-//	_, err := keeper.DeleteMasterNode(ctx, msg)
-//	if err != nil {
-//		return err.Result()
-//	}
-//	d, _ := keeper.cdc.MarshalJSON(msg)
-//	tag := sdk.NewTags("deleted MasterNode address", []byte(msg.Maddr))
-//	return sdk.Result{
-//		Data: d,
-//		Tags: tag,
-//	}
-//}
+func handleMsgDeleteMasterNode(ctx sdk.Context, keeper Keeper, msg MsgDeleteMasterNode) sdk.Result {
+	_, err := keeper.DeleteMasterNode(ctx, msg)
+	if err != nil {
+		return err.Result()
+	}
+	d, _ := keeper.cdc.MarshalJSON(msg)
+	tag := sdk.NewTags("deleted MasterNode address", []byte(msg.Maddr))
+	return sdk.Result{
+		Data: d,
+		Tags: tag,
+	}
+}
 //
 //func handleMsgPayVpnService(ctx sdk.Context, keeper Keeper, msg MsgPayVpnService) sdk.Result {
 //	id, err := keeper.PayVpnService(ctx, msg)

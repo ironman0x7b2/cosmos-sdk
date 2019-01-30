@@ -44,10 +44,7 @@ type MsgDeleteVpnUser struct {
 	Gas      int64  `json:"gas"`
 }
 type MsgDeleteMasterNode struct {
-	Address  string `json:"address", omitempty`
-	Name     string `json:"name"`
-	Password string `json:"password"`
-	Gas      int64  `json:"gas"`
+	BaseReq 	  utils.BaseReq `json:"base_req"`
 }
 type MsgPayVpnService struct {
 	Coins        string `json:"amount", omitempty`
@@ -71,10 +68,8 @@ type MsgGetVpnPayment struct {
 }
 
 type MsgRefund struct {
-	Name      string `json:"name"`
-	Password  string `json:"password"`
+	BaseReq 	  utils.BaseReq `json:"base_req"`
 	Sessionid string `json:"session_id", omitempty`
-	Gas       int64  `json:"gas"`
 }
 
 type ClientSignature struct {

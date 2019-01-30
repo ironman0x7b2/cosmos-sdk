@@ -489,58 +489,83 @@ func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.
 // *  ]
 //}
 //*/
-//func deleteMasterHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
-//	return func(w http.ResponseWriter, r *http.Request) {
-//		w.Header().Set("Content-Type", "application/json")
-//		var msg MsgDeleteMasterNode
-//		var err error
-//		body, err := ioutill.ReadAll(r.Body)
-//		if err != nil {
-//			return
-//		}
-//		json.Unmarshal(body, &msg)
-//		if msg.Address == "" {
-//			w.WriteHeader(http.StatusBadRequest)
-//			w.Write([]byte(" entered invalid address."))
-//			return
-//		}
-//		Maddr, err := sdk.AccAddressFromBech32(msg.Address)
-//		if err != nil {
-//			w.WriteHeader(http.StatusBadRequest)
-//			w.Write([]byte(err.Error()))
-//			return
-//		}
-//		ctx = ctx.WithGas(msg.Gas)
-//		ctx = ctx.WithFromAddressName(msg.Name)
-//		addr, err := ctx.GetFromAddress()
-//		if err != nil {
-//			sdk.ErrInvalidAddress("The given Address is Invalid")
-//		}
-//		ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
-//		acc, err := ctx.GetAccountNumber(addr)
-//		seq, err := ctx.NextSequence(addr)
-//		ctx = ctx.WithSequence(seq)
-//		ctx = ctx.WithAccountNumber(acc)
-//		msg1 := sentinel.NewMsgDeleteMasterNode(addr, Maddr)
-//		txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
-//		if err != nil {
-//			w.WriteHeader(http.StatusUnauthorized)
-//			w.Write([]byte(err.Error()))
-//			return
-//		}
-//		res, err := ctx.BroadcastTx(txBytes)
-//		if err != nil {
-//			w.WriteHeader(http.StatusInternalServerError)
-//			w.Write([]byte(err.Error()))
-//			return
-//		}
-//		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
-//		data, err := json.MarshalIndent(respon, "", " ")
-//		w.Write(data)
-//	}
-//	return nil
-//}
-//
+func deleteMasterHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var msg MsgDeleteMasterNode
+		var err error
+		body, err := ioutill.ReadAll(r.Body)
+		if err != nil {
+			return
+		}
+		json.Unmarshal(body, &msg)
+		//if msg.Address == "" {
+		//	w.WriteHeader(http.StatusBadRequest)
+		//	w.Write([]byte(" entered invalid address."))
+		//	return
+		//}
+		//Maddr, err := sdk.AccAddressFromBech32(msg.Address)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusBadRequest)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+		info, err := kb.Get(msg.BaseReq.Name)
+		if err != nil {
+			utils.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		addr := sdk.AccAddress(info.GetPubKey().Address())
+		fmt.Println("Address is: ",addr)
+		if err != nil {
+			sdk.ErrInvalidAddress("The given Address is Invalid")
+		}
+
+		//Maddr, err := sdk.AccAddressFromBech32(msg.Address)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusBadRequest)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+
+		//ctx = ctx.WithGas(msg.Gas)
+		//ctx = ctx.WithFromAddressName(msg.Name)
+		//addr, err := ctx.GetFromAddress()
+		//if err != nil {
+		//	sdk.ErrInvalidAddress("The given Address is Invalid")
+		//}
+		//ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
+		//acc, err := ctx.GetAccountNumber(addr)
+		//seq, err := ctx.NextSequence(addr)
+		//ctx = ctx.WithSequence(seq)
+		//ctx = ctx.WithAccountNumber(acc)
+
+
+		//msg1 := sentinel.NewMsgDeleteMasterNode(addr, Maddr)
+		//utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
+
+		//txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusUnauthorized)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+		//res, err := ctx.BroadcastTx(txBytes)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusInternalServerError)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+		//respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		//data, err := json.MarshalIndent(respon, "", " ")
+		//w.Write(data)
+
+
+	}
+	return nil
+}
+
 func validateIp(host string) bool {
 	parts := strings.Split(host, ".")
 
@@ -836,51 +861,69 @@ func validateIp(host string) bool {
 //* }
 //*/
 //
-//func RefundHandleFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
-//	return func(w http.ResponseWriter, r *http.Request) {
-//		w.Header().Set("Content-Type", "application/json")
-//		msg := MsgRefund{}
-//		var err error
-//		body, err := ioutill.ReadAll(r.Body)
-//		if err != nil {
-//			return
-//		}
-//		err = json.Unmarshal(body, &msg)
-//		if err != nil {
-//			sentinel.ErrUnMarshal("Unmarshal of Given Message Type is failed")
-//
-//		}
-//		ctx = ctx.WithFromAddressName(msg.Name)
-//		ctx = ctx.WithGas(msg.Gas)
-//		addr, err := ctx.GetFromAddress()
-//		if err != nil {
-//			sdk.ErrInvalidAddress("The given Address is Invalid")
-//		}
-//		ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
-//		acc, err := ctx.GetAccountNumber(addr)
-//		seq, err := ctx.NextSequence(addr)
-//		ctx = ctx.WithSequence(seq)
-//		ctx = ctx.WithAccountNumber(acc)
-//		msg1 := sentinel.NewMsgRefund(addr, []byte(msg.Sessionid))
-//		txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
-//		if err != nil {
-//			w.WriteHeader(http.StatusUnauthorized)
-//			w.Write([]byte(err.Error()))
-//			return
-//		}
-//
-//		res, err := ctx.BroadcastTx(txBytes)
-//		if err != nil {
-//			w.WriteHeader(http.StatusInternalServerError)
-//			w.Write([]byte(err.Error()))
-//			return
-//		}
-//		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
-//		data, err := json.MarshalIndent(respon, "", " ")
-//		w.Write(data)
-//	}
-//}
-//
+func RefundHandleFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		msg := MsgRefund{}
+		var err error
+		body, err := ioutill.ReadAll(r.Body)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal(body, &msg)
+		if err != nil {
+			sentinel.ErrUnMarshal("Unmarshal of Given Message Type is failed")
+
+		}
+
+		info, err := kb.Get(msg.BaseReq.Name)
+		if err != nil {
+			utils.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		addr := sdk.AccAddress(info.GetPubKey().Address())
+		fmt.Println("Address is: ",addr)
+		if err != nil {
+			sdk.ErrInvalidAddress("The given Address is Invalid")
+		}
+
+
+		//ctx = ctx.WithFromAddressName(msg.Name)
+		//ctx = ctx.WithGas(msg.Gas)
+		//addr, err := ctx.GetFromAddress()
+		//if err != nil {
+		//	sdk.ErrInvalidAddress("The given Address is Invalid")
+		//}
+		//ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
+		//acc, err := ctx.GetAccountNumber(addr)
+		//seq, err := ctx.NextSequence(addr)
+		//ctx = ctx.WithSequence(seq)
+		//ctx = ctx.WithAccountNumber(acc)
+		//
+
+		msg1 := sentinel.NewMsgRefund(addr, []byte(msg.Sessionid))
+		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
+
+		//txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusUnauthorized)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+		//
+		//res, err := ctx.BroadcastTx(txBytes)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusInternalServerError)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+		//respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		//data, err := json.MarshalIndent(respon, "", " ")
+		//w.Write(data)
+	}
+}
+
 ///**
 //* @api {post} /vpn/getpayment To get payment of vpn service
 //* @apiName  GetVPNPayment

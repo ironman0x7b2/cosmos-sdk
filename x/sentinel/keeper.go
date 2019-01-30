@@ -84,15 +84,15 @@ func (keeper Keeper) StoreKey() sdk.StoreKey {
 //	store.Delete([]byte(msg.Vaddr))
 //	return msg.Vaddr, nil
 //}
-//func (keeper Keeper) DeleteMasterNode(ctx sdk.Context, msg MsgDeleteMasterNode) (sdk.AccAddress, sdk.Error) {
-//	store := ctx.KVStore(keeper.sentStoreKey)
-//	db := store.Get([]byte(msg.Maddr))
-//	if db == nil {
-//		return nil, ErrAccountAddressNotExist("Account is not exist")
-//	}
-//	store.Delete([]byte(msg.Maddr))
-//	return msg.Maddr, nil
-//}
+func (keeper Keeper) DeleteMasterNode(ctx sdk.Context, msg MsgDeleteMasterNode) (sdk.AccAddress, sdk.Error) {
+	store := ctx.KVStore(keeper.sentStoreKey)
+	db := store.Get([]byte(msg.Maddr))
+	if db == nil {
+		return nil, ErrAccountAddressNotExist("Account is not exist")
+	}
+	store.Delete([]byte(msg.Maddr))
+	return msg.Maddr, nil
+}
 //
 //func (keeper Keeper) PayVpnService(ctx sdk.Context, msg MsgPayVpnService) (string, sdk.Error) {
 //

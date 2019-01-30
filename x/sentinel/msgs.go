@@ -180,48 +180,48 @@ func (msg MsgRegisterMasterNode) Tags() sdk.Tags {
 //
 //
 //
-type MsgDeleteVpnUser struct {
-	From  sdk.AccAddress
-	Vaddr sdk.AccAddress
-}
-
-func NewMsgDeleteVpnUser(From sdk.AccAddress, Vaddr sdk.AccAddress) MsgDeleteVpnUser {
-	return MsgDeleteVpnUser{
-		From:  From,
-		Vaddr: Vaddr,
-	}
-}
-
-func (msc MsgDeleteVpnUser) Type() string {
-	return "sentinel"
-}
-
-func (msc MsgDeleteVpnUser) GetSignBytes() []byte {
-	byte_format, err := json.Marshal(msc)
-	if err != nil {
-		return nil
-	}
-	return byte_format
-}
-
-func (msc MsgDeleteVpnUser) ValidateBasic() sdk.Error {
-	if msc.From == nil {
-		return sdk.ErrInvalidAddress("Address type is Invalid")
-	}
-	if msc.Vaddr == nil {
-		return sdk.ErrInvalidAddress("VPN Address type is Invalid")
-	}
-	return nil
-}
-func (msc MsgDeleteVpnUser) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msc.From}
-}
-
+//type MsgDeleteVpnUser struct {
+//	From  sdk.AccAddress
+//	Vaddr sdk.AccAddress
+//}
 //
+//func NewMsgDeleteVpnUser(From sdk.AccAddress, Vaddr sdk.AccAddress) MsgDeleteVpnUser {
+//	return MsgDeleteVpnUser{
+//		From:  From,
+//		Vaddr: Vaddr,
+//	}
+//}
 //
+//func (msc MsgDeleteVpnUser) Type() string {
+//	return "sentinel"
+//}
 //
+//func (msc MsgDeleteVpnUser) GetSignBytes() []byte {
+//	byte_format, err := json.Marshal(msc)
+//	if err != nil {
+//		return nil
+//	}
+//	return byte_format
+//}
 //
+//func (msc MsgDeleteVpnUser) ValidateBasic() sdk.Error {
+//	if msc.From == nil {
+//		return sdk.ErrInvalidAddress("Address type is Invalid")
+//	}
+//	if msc.Vaddr == nil {
+//		return sdk.ErrInvalidAddress("VPN Address type is Invalid")
+//	}
+//	return nil
+//}
+//func (msc MsgDeleteVpnUser) GetSigners() []sdk.AccAddress {
+//	return []sdk.AccAddress{msc.From}
+//}
 //
+////
+////
+////
+////
+////
 type MsgDeleteMasterNode struct {
 	Address sdk.AccAddress
 	Maddr   sdk.AccAddress
@@ -233,8 +233,12 @@ func NewMsgDeleteMasterNode(addr sdk.AccAddress, Maddr sdk.AccAddress) MsgDelete
 		Maddr:   Maddr,
 	}
 }
-func (msc MsgDeleteMasterNode) Type() string {
+func (msc MsgDeleteMasterNode) Route() string {
 	return "sentinel"
+}
+
+func (msc MsgDeleteMasterNode) Type() string {
+	return "delete_master_node"
 }
 
 func (msc MsgDeleteMasterNode) GetSignBytes() []byte {
@@ -258,11 +262,7 @@ func (msc MsgDeleteMasterNode) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msc.Address}
 }
 
-//
-//
-//
-//
-//
+
 type MsgPayVpnService struct {
 	Coins   sdk.Coins
 	Vpnaddr sdk.AccAddress
@@ -270,84 +270,84 @@ type MsgPayVpnService struct {
 	Pubkey  crypto.PubKey
 }
 
-func NewMsgPayVpnService(coins sdk.Coins, vaddr sdk.AccAddress, from sdk.AccAddress, pubkey crypto.PubKey) MsgPayVpnService {
-	return MsgPayVpnService{
-		Coins:   coins,
-		Vpnaddr: vaddr,
-		From:    from,
-		Pubkey:  pubkey,
-	}
-
-}
-
-func (msc MsgPayVpnService) Type() string {
-	return "sentinel"
-}
-func (msc MsgPayVpnService) GetSignBytes() []byte {
-	byte_format, err := json.Marshal(msc)
-	if err != nil {
-		return nil
-	}
-	return byte_format
-}
-
-func (msc MsgPayVpnService) ValidateBasic() sdk.Error {
-	if msc.Coins.IsZero() || !(msc.Coins.IsNotNegative()) {
-		return sdk.ErrInsufficientFunds("Error insufficient coins")
-	}
-	if msc.From == nil || msc.Vpnaddr == nil {
-		return sdk.ErrInvalidAddress("Invalid address type")
-	}
-	return nil
-}
-func (msc MsgPayVpnService) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msc.From}
-}
+//func NewMsgPayVpnService(coins sdk.Coins, vaddr sdk.AccAddress, from sdk.AccAddress, pubkey crypto.PubKey) MsgPayVpnService {
+//	return MsgPayVpnService{
+//		Coins:   coins,
+//		Vpnaddr: vaddr,
+//		From:    from,
+//		Pubkey:  pubkey,
+//	}
+//
+//}
+//
+//func (msc MsgPayVpnService) Type() string {
+//	return "sentinel"
+//}
+//func (msc MsgPayVpnService) GetSignBytes() []byte {
+//	byte_format, err := json.Marshal(msc)
+//	if err != nil {
+//		return nil
+//	}
+//	return byte_format
+//}
+//
+//func (msc MsgPayVpnService) ValidateBasic() sdk.Error {
+//	if msc.Coins.IsZero() || !(msc.Coins.IsNotNegative()) {
+//		return sdk.ErrInsufficientFunds("Error insufficient coins")
+//	}
+//	if msc.From == nil || msc.Vpnaddr == nil {
+//		return sdk.ErrInvalidAddress("Invalid address type")
+//	}
+//	return nil
+//}
+//func (msc MsgPayVpnService) GetSigners() []sdk.AccAddress {
+//	return []sdk.AccAddress{msc.From}
+//}
 
 //
 //
 //
 //
 //
-type MsgSigntoVpn struct {
-	Coins     sdk.Coins
-	Address   sdk.AccAddress
-	Sessionid []byte
-
-	From sdk.AccAddress
-}
-
-func (msc MsgSigntoVpn) Type() string {
-	return "sentinel"
-}
-
-func (msc MsgSigntoVpn) GetSignBytes() []byte {
-	byte_format, err := json.Marshal(msc)
-	if err != nil {
-		return nil
-	}
-	return byte_format
-}
-
-func (msc MsgSigntoVpn) ValidateBasic() sdk.Error {
-	var a []byte
-	if msc.Coins.IsZero() || !(msc.Coins.IsNotNegative()) {
-		return sdk.ErrInsufficientFunds("Error insufficient coins")
-	}
-	if reflect.TypeOf(msc.Sessionid) != reflect.TypeOf(a) {
-		return ErrInvalidSessionid(" Invalid SessionId")
-	}
-	if msc.Address == nil {
-		return sdk.ErrInvalidAddress("Invalid Address")
-	}
-	if msc.From == nil {
-		return sdk.ErrInvalidAddress("Invalid  from Address")
-	}
-	return nil
-}
-func (msc MsgSigntoVpn) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msc.From}
-}
+//type MsgSigntoVpn struct {
+//	Coins     sdk.Coins
+//	Address   sdk.AccAddress
+//	Sessionid []byte
+//
+//	From sdk.AccAddress
+//}
+//
+//func (msc MsgSigntoVpn) Type() string {
+//	return "sentinel"
+//}
+//
+//func (msc MsgSigntoVpn) GetSignBytes() []byte {
+//	byte_format, err := json.Marshal(msc)
+//	if err != nil {
+//		return nil
+//	}
+//	return byte_format
+//}
+//
+//func (msc MsgSigntoVpn) ValidateBasic() sdk.Error {
+//	var a []byte
+//	if msc.Coins.IsZero() || !(msc.Coins.IsNotNegative()) {
+//		return sdk.ErrInsufficientFunds("Error insufficient coins")
+//	}
+//	if reflect.TypeOf(msc.Sessionid) != reflect.TypeOf(a) {
+//		return ErrInvalidSessionid(" Invalid SessionId")
+//	}
+//	if msc.Address == nil {
+//		return sdk.ErrInvalidAddress("Invalid Address")
+//	}
+//	if msc.From == nil {
+//		return sdk.ErrInvalidAddress("Invalid  from Address")
+//	}
+//	return nil
+//}
+//func (msc MsgSigntoVpn) GetSigners() []sdk.AccAddress {
+//	return []sdk.AccAddress{msc.From}
+//}
 
 
 //type MsgGetVpnPayment struct {
@@ -413,40 +413,44 @@ func (msc MsgSigntoVpn) GetSigners() []sdk.AccAddress {
 //
 //
 //
-//type MsgRefund struct {
-//	From      sdk.AccAddress
-//	Sessionid []byte
-//	//Time      int64
-//}
-//
-//func NewMsgRefund(addr sdk.AccAddress, sid []byte) MsgRefund {
-//	return MsgRefund{
-//		From:      addr,
-//		Sessionid: sid,
-//	}
-//
-//}
-//func (msc MsgRefund) Type() string {
-//	return "sentinel"
-//}
-//
-//func (msc MsgRefund) GetSignBytes() []byte {
-//	byte_format, err := json.Marshal(msc)
-//	if err != nil {
-//		return nil
-//	}
-//	return byte_format
-//}
-//
-//func (msc MsgRefund) ValidateBasic() sdk.Error {
-//	if msc.Sessionid == nil {
-//		return ErrInvalidSessionid("SessionId is Invalid")
-//	}
-//	return nil
-//}
-//func (msc MsgRefund) GetSigners() []sdk.AccAddress {
-//	return []sdk.AccAddress{msc.From}
-//}
+type MsgRefund struct {
+	From      sdk.AccAddress
+	Sessionid []byte
+	//Time      int64
+}
+
+func NewMsgRefund(addr sdk.AccAddress, sid []byte) MsgRefund {
+	return MsgRefund{
+		From:      addr,
+		Sessionid: sid,
+	}
+
+}
+func (msc MsgRefund) Route() string {
+	return "sentinel"
+}
+
+func (msc MsgRefund) Type() string {
+return "refund"
+}
+
+func (msc MsgRefund) GetSignBytes() []byte {
+	byte_format, err := json.Marshal(msc)
+	if err != nil {
+		return nil
+	}
+	return byte_format
+}
+
+func (msc MsgRefund) ValidateBasic() sdk.Error {
+	if msc.Sessionid == nil {
+		return ErrInvalidSessionid("SessionId is Invalid")
+	}
+	return nil
+}
+func (msc MsgRefund) GetSigners() []sdk.AccAddress {
+	return []sdk.AccAddress{msc.From}
+}
 
 //msg Decoder fo the Query:
 //type MsgSendTokens struct {

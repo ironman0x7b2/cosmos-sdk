@@ -24,16 +24,16 @@ func ServiceRoutes(ctx context.CLIContext, r *mux.Router, cdc *codec.Codec, kb k
 		"/register/master", // master node
 		registermasterdHandlerFn(ctx, cdc, kb),
 	).Methods("POST")
-	//
-	//r.HandleFunc(
-	//	"/refund", // client
-	//	RefundHandleFn(ctx, cdc),
-	//).Methods("POST")
-	//
-	//r.HandleFunc(
-	//	"/master", // owner  or by vote
-	//	deleteMasterHandlerFn(ctx, cdc),
-	//).Methods("DELETE")
+
+	r.HandleFunc(
+		"/refund", // client
+		RefundHandleFn(ctx, cdc, kb),
+	).Methods("POST")
+
+	r.HandleFunc(
+		"/master", // owner  or by vote
+		deleteMasterHandlerFn(ctx, cdc, kb),
+	).Methods("DELETE")
 	//
 	//r.HandleFunc(
 	//	"/vpn", // master node deletes service provider
