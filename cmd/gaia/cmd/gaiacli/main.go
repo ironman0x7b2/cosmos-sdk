@@ -22,11 +22,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/version"
 
-	sentype "github.com/cosmos/cosmos-sdk/x/sentinel"
-	sentinel "github.com/cosmos/cosmos-sdk/x/sentinel/rest"
 	at "github.com/cosmos/cosmos-sdk/x/auth"
 	auth "github.com/cosmos/cosmos-sdk/x/auth/client/rest"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/client/rest"
+	sentype "github.com/cosmos/cosmos-sdk/x/sentinel"
+	sentinelRest "github.com/cosmos/cosmos-sdk/x/sentinel/rest"
 	dist "github.com/cosmos/cosmos-sdk/x/distribution"
 	gv "github.com/cosmos/cosmos-sdk/x/gov"
 	gov "github.com/cosmos/cosmos-sdk/x/gov/client/rest"
@@ -158,7 +158,9 @@ func txCmd(cdc *amino.Codec, mc []sdk.ModuleClients) *cobra.Command {
 // NOTE: If making updates here you also need to update the test helper in client/lcd/test_helper.go
 func registerRoutes(rs *lcd.RestServer) {
 	keeper := sentype.Keeper{}
+
 	registerSwaggerUI(rs)
+	sentinelRest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, keeper)
 	keys.RegisterRoutes(rs.Mux, rs.CliCtx.Indent)
 	rpc.RegisterRoutes(rs.CliCtx, rs.Mux)
 	tx.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
@@ -167,7 +169,6 @@ func registerRoutes(rs *lcd.RestServer) {
 	staking.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, rs.KeyBase)
 	slashing.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, rs.KeyBase)
 	gov.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
-	sentinel.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, keeper)
 }
 
 func registerSwaggerUI(rs *lcd.RestServer) {

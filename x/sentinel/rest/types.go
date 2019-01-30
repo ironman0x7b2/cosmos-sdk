@@ -1,10 +1,26 @@
 package rest
 
 import (
-	common "github.com/tendermint/tendermint/libs/common"
+	"github.com/cosmos/cosmos-sdk/client/utils"
+	"github.com/tendermint/go-amino"
+	"github.com/tendermint/tendermint/libs/common"
+
 )
+var cdc = amino.NewCodec()
+
+type Signature interface {
+	Bytes() []byte
+	IsZero() bool
+	Equals(Signature) bool
+}
+
+func SignatureFromBytes(pubKeyBytes []byte) (pubKey Signature, err error) {
+	err = cdc.UnmarshalBinaryBare(pubKeyBytes, &pubKey)
+	return
+}
 
 type MsgRegisterVpnService struct {
+	BaseReq 	  utils.BaseReq `json:"base_req"`
 	Ip            string `json:"ip"`
 	UploadSpeed   int64  `json:"upload_speed"`
 	DownloadSpeed int64  `json:"download_speed"`
@@ -16,9 +32,6 @@ type MsgRegisterVpnService struct {
 	Country       string `json:"location_country"`
 	NodeType      string `json:"node_type"`
 	Version       string `json:"version"`
-	Localaccount  string `json:"name"`
-	Password      string `json:"password"`
-	Gas           int64  `json:"gas"`
 }
 type MsgRegisterMasterNode struct {
 	Name     string `json:"name"`

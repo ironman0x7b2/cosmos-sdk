@@ -13,8 +13,14 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 )
 
-/// USE gofmt command for styling/structing the go code
+//
 
+//
+//
+//
+//
+
+/// USE gofmt command for styling/structing the go code
 
 type MsgRegisterVpnService struct {
 	From       sdk.AccAddress
@@ -83,9 +89,14 @@ func validateIp(host string) bool {
 	return true
 }
 
-func (msc MsgRegisterVpnService) Type() string {
+func (msc MsgRegisterVpnService) Route() string {
 	return "sentinel"
 }
+
+func (msc MsgRegisterVpnService) Type() string {
+	return "register_vpn"
+}
+
 
 func (msc MsgRegisterVpnService) GetSignBytes() []byte {
 	var byteformat []byte
@@ -330,142 +341,138 @@ func (msc MsgSigntoVpn) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msc.From}
 }
 
+
+//type MsgGetVpnPayment struct {
+//	Coins     sdk.Coins
+//	Sessionid []byte
+//	Counter   int64
+//	Signature crypto.Signature
+//	From      sdk.AccAddress
+//	IsFinal   bool
+//}
+
+//func NewMsgGetVpnPayment(coin sdk.Coins, sid []byte, counter int64, addr sdk.AccAddress, sign crypto.Signature, isfinal bool) MsgGetVpnPayment {
+//	return MsgGetVpnPayment{
+//		Coins:     coin,
+//		Sessionid: sid,
+//		Counter:   counter,
+//		Signature: sign,
+//		From:      addr,
+//		IsFinal:   isfinal,
+//	}
 //
+//}
+//func (msc MsgGetVpnPayment) Type() string {
+//	return "sentinel"
+//}
 //
+//type sign struct {
+//	Coins     sdk.Coins
+//	Sessionid []byte
+//	Counter   int64
+//	IsFinal   bool
+//}
 //
+//func NewSign(coins sdk.Coins, Sess []byte, counter int64, isFinal bool) sign {
+//	return sign{
+//		Coins:     coins,
+//		Sessionid: Sess,
+//		Counter:   counter,
+//		IsFinal:   isFinal,
+//	}
+//}
 //
-
-type MsgGetVpnPayment struct {
-	Coins     sdk.Coins
-	Sessionid []byte
-	Counter   int64
-	Signature []byte
-	From      sdk.AccAddress
-	IsFinal   bool
-}
-
-func NewMsgGetVpnPayment(coin sdk.Coins, sid []byte, counter int64, addr sdk.AccAddress, sign []byte, isfinal bool) MsgGetVpnPayment {
-	return MsgGetVpnPayment{
-		Coins:     coin,
-		Sessionid: sid,
-		Counter:   counter,
-		Signature: sign,
-		From:      addr,
-		IsFinal:   isfinal,
-	}
-
-}
-func (msc MsgGetVpnPayment) Type() string {
-	return "sentinel"
-}
-
-type sign struct {
-	Coins     sdk.Coins
-	Sessionid []byte
-	Counter   int64
-	IsFinal   bool
-}
-
-func NewSign(coins sdk.Coins, Sess []byte, counter int64, isFinal bool) sign {
-	return sign{
-		Coins:     coins,
-		Sessionid: Sess,
-		Counter:   counter,
-		IsFinal:   isFinal,
-	}
-}
-
-func (msc MsgGetVpnPayment) GetSignBytes() []byte {
-	byte_format, err := json.Marshal(msc)
-	if err != nil {
-		return nil
-	}
-	return byte_format
-}
-
-func (msc MsgGetVpnPayment) ValidateBasic() sdk.Error {
-	if msc.Coins.IsZero() || !(msc.Coins.IsNotNegative()) {
-		return sdk.ErrInsufficientFunds("Error insufficient coins")
-	}
-	return nil
-}
-func (msc MsgGetVpnPayment) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msc.From}
-}
+//func (msc MsgGetVpnPayment) GetSignBytes() []byte {
+//	byte_format, err := json.Marshal(msc)
+//	if err != nil {
+//		return nil
+//	}
+//	return byte_format
+//}
+//
+//func (msc MsgGetVpnPayment) ValidateBasic() sdk.Error {
+//	if msc.Coins.IsZero() || !(msc.Coins.IsNotNegative()) {
+//		return sdk.ErrInsufficientFunds("Error insufficient coins")
+//	}
+//	return nil
+//}
+//func (msc MsgGetVpnPayment) GetSigners() []sdk.AccAddress {
+//	return []sdk.AccAddress{msc.From}
+//}
 
 //
 //
 //
 //
 //
-type MsgRefund struct {
-	From      sdk.AccAddress
-	Sessionid []byte
-	//Time      int64
-}
-
-func NewMsgRefund(addr sdk.AccAddress, sid []byte) MsgRefund {
-	return MsgRefund{
-		From:      addr,
-		Sessionid: sid,
-	}
-
-}
-func (msc MsgRefund) Type() string {
-	return "sentinel"
-}
-
-func (msc MsgRefund) GetSignBytes() []byte {
-	byte_format, err := json.Marshal(msc)
-	if err != nil {
-		return nil
-	}
-	return byte_format
-}
-
-func (msc MsgRefund) ValidateBasic() sdk.Error {
-	if msc.Sessionid == nil {
-		return ErrInvalidSessionid("SessionId is Invalid")
-	}
-	return nil
-}
-func (msc MsgRefund) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msc.From}
-}
+//type MsgRefund struct {
+//	From      sdk.AccAddress
+//	Sessionid []byte
+//	//Time      int64
+//}
+//
+//func NewMsgRefund(addr sdk.AccAddress, sid []byte) MsgRefund {
+//	return MsgRefund{
+//		From:      addr,
+//		Sessionid: sid,
+//	}
+//
+//}
+//func (msc MsgRefund) Type() string {
+//	return "sentinel"
+//}
+//
+//func (msc MsgRefund) GetSignBytes() []byte {
+//	byte_format, err := json.Marshal(msc)
+//	if err != nil {
+//		return nil
+//	}
+//	return byte_format
+//}
+//
+//func (msc MsgRefund) ValidateBasic() sdk.Error {
+//	if msc.Sessionid == nil {
+//		return ErrInvalidSessionid("SessionId is Invalid")
+//	}
+//	return nil
+//}
+//func (msc MsgRefund) GetSigners() []sdk.AccAddress {
+//	return []sdk.AccAddress{msc.From}
+//}
 
 //msg Decoder fo the Query:
-type MsgSendTokens struct {
-	From  sdk.AccAddress
-	To    sdk.AccAddress
-	Coins sdk.Coins
-}
-
-func NewMsgSendTokens(from sdk.AccAddress, coins sdk.Coins, to sdk.AccAddress) MsgSendTokens {
-	return MsgSendTokens{
-		From:  from,
-		To:    to,
-		Coins: coins,
-	}
-
-}
-func (msc MsgSendTokens) Type() string {
-	return "sentinel"
-}
-
-func (msc MsgSendTokens) GetSignBytes() []byte {
-	byte_format, err := json.Marshal(msc)
-	if err != nil {
-		return nil
-	}
-	return byte_format
-}
-
-func (msc MsgSendTokens) ValidateBasic() sdk.Error {
-	if msc.To == nil || msc.From == nil {
-		return sdk.ErrInvalidAddress("Invalid Address")
-	}
-	return nil
-}
-func (msc MsgSendTokens) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{msc.From}
-}
+//type MsgSendTokens struct {
+//	From  sdk.AccAddress
+//	To    sdk.AccAddress
+//	Coins sdk.Coins
+//}
+//
+//func NewMsgSendTokens(from sdk.AccAddress, coins sdk.Coins, to sdk.AccAddress) MsgSendTokens {
+//	return MsgSendTokens{
+//		From:  from,
+//		To:    to,
+//		Coins: coins,
+//	}
+//
+//}
+//func (msc MsgSendTokens) Type() string {
+//	return "sentinel"
+//}
+//
+//func (msc MsgSendTokens) GetSignBytes() []byte {
+//	byte_format, err := json.Marshal(msc)
+//	if err != nil {
+//		return nil
+//	}
+//	return byte_format
+//}
+//
+//func (msc MsgSendTokens) ValidateBasic() sdk.Error {
+//	if msc.To == nil || msc.From == nil {
+//		return sdk.ErrInvalidAddress("Invalid Address")
+//	}
+//	return nil
+//}
+//func (msc MsgSendTokens) GetSigners() []sdk.AccAddress {
+//	return []sdk.AccAddress{msc.From}
+//}

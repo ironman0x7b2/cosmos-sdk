@@ -6,10 +6,9 @@ import (
 
 func NewHandler(k Keeper) sdk.Handler {
 	return func(ctx sdk.Context, msg sdk.Msg) sdk.Result {
-		//switch msg := msg.(type) {
-		//	return handleRegisterVpnService(ctx, k, msg.Type())
-		//case MsgRegisterVpnService:
-		//	return handleRegisterVpnService(ctx, k, msg)
+		switch msg := msg.(type) {
+		case MsgRegisterVpnService:
+			return handleRegisterVpnService(ctx, k, msg)
 		//case MsgDeleteVpnUser:
 		//	return handleDeleteVpnUser(ctx, k, msg)
 		//case MsgRegisterMasterNode:
@@ -24,24 +23,24 @@ func NewHandler(k Keeper) sdk.Handler {
 		//	return handleMsgRefund(ctx, k, msg)
 		//case MsgSendTokens:
 		//	return handleMsgMsgSendTokens(ctx, k, msg)
-		//default:
+		default:
 			return sdk.ErrUnknownRequest("unrecognized message").Result()
-
+		}
 	}
 }
 
-func handleMsgRegisterMasterNode(ctx sdk.Context, keeper Keeper, msg MsgRegisterMasterNode) sdk.Result {
-	_, err := keeper.RegisterMasterNode(ctx, msg)
-	if err != nil {
-		return err.Result()
-	}
-	d, _ := keeper.cdc.MarshalJSON(msg)
-	return sdk.Result{
-		Tags: msg.Tags(),
-		Data: d,
-	}
-}
-
+//func handleMsgRegisterMasterNode(ctx sdk.Context, keeper Keeper, msg MsgRegisterMasterNode) sdk.Result {
+//	_, err := keeper.RegisterMasterNode(ctx, msg)
+//	if err != nil {
+//		return err.Result()
+//	}
+//	d, _ := keeper.cdc.MarshalJSON(msg)
+//	return sdk.Result{
+//		Tags: msg.Tags(),
+//		Data: d,
+//	}
+//}
+//
 //func handleMsgMsgSendTokens(ctx sdk.Context, keeper Keeper, msg MsgSendTokens) sdk.Result {
 //	address, err := keeper.SendTokens(ctx, msg)
 //	if err != nil {
@@ -54,7 +53,7 @@ func handleMsgRegisterMasterNode(ctx sdk.Context, keeper Keeper, msg MsgRegister
 //		Tags: tags,
 //	}
 //}
-//
+
 func handleRegisterVpnService(ctx sdk.Context, keeper Keeper, msg MsgRegisterVpnService) sdk.Result {
 
 	_, err := keeper.RegisterVpnService(ctx, msg)
