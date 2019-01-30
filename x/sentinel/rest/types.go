@@ -34,9 +34,7 @@ type MsgRegisterVpnService struct {
 	Version       string `json:"version"`
 }
 type MsgRegisterMasterNode struct {
-	Name     string `json:"name"`
-	Gas      int64  `json:"gas"`
-	Password string `json:"password"`
+	BaseReq 	  utils.BaseReq `json:"base_req"`
 }
 
 type MsgDeleteVpnUser struct {

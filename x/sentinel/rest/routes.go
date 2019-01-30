@@ -20,10 +20,10 @@ func ServiceRoutes(ctx context.CLIContext, r *mux.Router, cdc *codec.Codec, kb k
 	//	SendTokenHandlerFn(ctx, cdc),
 	//).Methods("POST")
 	//
-	//r.HandleFunc(
-	//	"/register/master", // master node
-	//	registermasterdHandlerFn(ctx, cdc),
-	//).Methods("POST")
+	r.HandleFunc(
+		"/register/master", // master node
+		registermasterdHandlerFn(ctx, cdc, kb),
+	).Methods("POST")
 	//
 	//r.HandleFunc(
 	//	"/refund", // client

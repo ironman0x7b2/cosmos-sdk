@@ -19,7 +19,7 @@ import (
 
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	//senttype "github.com/cosmos/cosmos-sdk/x/sentinel/types"
+
 )
 
 /**
@@ -288,58 +288,77 @@ func registervpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keyb
 //*             ]
 //* }
 //*/
-//func registermasterdHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
-//	return func(w http.ResponseWriter, r *http.Request) {
-//		w.Header().Set("Content-Type", "application/json")
-//		msg := MsgRegisterMasterNode{}
-//		var err error
-//		body, err := ioutill.ReadAll(r.Body)
-//		if err != nil {
-//			return
-//		}
-//
-//		json.Unmarshal(body, &msg)
-//		ctx = ctx.WithFromAddressName(msg.Name)
-//		ctx = ctx.WithGas(msg.Gas)
-//		addr, err := ctx.GetFromAddress()
-//		if err != nil {
-//			sdk.ErrInvalidAddress("The given Address is Invalid")
-//		}
-//		ctx = ctx.WithGas(msg.Gas)
-//		ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
-//
-//		acc, err := ctx.GetAccountNumber(addr)
-//		seq, err := ctx.NextSequence(addr)
-//		ctx = ctx.WithSequence(seq)
-//		ctx = ctx.WithAccountNumber(acc)
-//		if err != nil {
-//			w.Write([]byte("account number error"))
-//			w.Write([]byte(string(acc)))
-//
-//		}
-//
-//		msg1 := sentinel.NewMsgRegisterMasterNode(addr)
-//
-//		txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
-//		if err != nil {
-//			w.WriteHeader(http.StatusUnauthorized)
-//			w.Write([]byte(err.Error()))
-//			return
-//		}
-//
-//		res, err := ctx.BroadcastTx(txBytes)
-//		if err != nil {
-//			w.WriteHeader(http.StatusInternalServerError)
-//			w.Write([]byte(err.Error()))
-//			return
-//		}
-//		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
-//		data, err := json.MarshalIndent(respon, "", " ")
-//		w.Write(data)
-//	}
-//	return nil
-//}
-//
+func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		msg := MsgRegisterMasterNode{}
+		var err error
+		body, err := ioutill.ReadAll(r.Body)
+		if err != nil {
+			return
+		}
+
+		json.Unmarshal(body, &msg)
+
+		info, err := kb.Get(msg.BaseReq.Name)
+		if err != nil {
+			utils.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		addr := sdk.AccAddress(info.GetPubKey().Address())
+		fmt.Println("Address is: ",addr)
+		if err != nil {
+			sdk.ErrInvalidAddress("The given Address is Invalid")
+		}
+
+
+
+
+		//ctx = ctx.WithFromAddressName(msg.Name)
+		//ctx = ctx.WithGas(msg.Gas)
+		//addr, err := ctx.GetFromAddress()
+		//if err != nil {
+		//	sdk.ErrInvalidAddress("The given Address is Invalid")
+		//}
+		//ctx = ctx.WithGas(msg.Gas)
+		//ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
+		//
+		//acc, err := ctx.GetAccountNumber(addr)
+		//seq, err := ctx.NextSequence(addr)
+		//ctx = ctx.WithSequence(seq)
+		//ctx = ctx.WithAccountNumber(acc)
+		//if err != nil {
+		//	w.Write([]byte("account number error"))
+		//	w.Write([]byte(string(acc)))
+		//
+		//}
+
+		msg1 := sentinel.NewMsgRegisterMasterNode(addr)
+
+		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
+
+
+		//txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusUnauthorized)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+		//
+		//res, err := ctx.BroadcastTx(txBytes)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusInternalServerError)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+		//respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		//data, err := json.MarshalIndent(respon, "", " ")
+		//w.Write(data)
+	}
+	return nil
+}
+
 ///**
 //* @api {delete} /vpn To Delete VPN Node.
 //* @apiName  deleteVpnNode

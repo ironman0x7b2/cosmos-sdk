@@ -130,6 +130,8 @@ func (msc MsgRegisterVpnService) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msc.From}
 }
 
+
+
 type MsgRegisterMasterNode struct {
 	Address sdk.AccAddress
 }
@@ -140,8 +142,14 @@ func NewMsgRegisterMasterNode(addr sdk.AccAddress) MsgRegisterMasterNode {
 	}
 
 }
-func (msc MsgRegisterMasterNode) Type() string {
+
+
+func (msc MsgRegisterMasterNode) Route() string {
 	return "sentinel"
+}
+
+func (msc MsgRegisterMasterNode) Type() string {
+	return "register_master_node"
 }
 
 func (msc MsgRegisterMasterNode) GetSignBytes() []byte {

@@ -57,22 +57,22 @@ func (keeper Keeper) RegisterVpnService(ctx sdk.Context, msg MsgRegisterVpnServi
 	return nil, ErrAccountAddressExist("Address already RegsentKeyistered as VPN node")
 }
 
-//func (keeper Keeper) RegisterMasterNode(ctx sdk.Context, msg MsgRegisterMasterNode) (sdk.AccAddress, sdk.Error) {
-//	sentkey := msg.Address
-//	store := ctx.KVStore(keeper.sentStoreKey)
-//	address := store.Get([]byte(sentkey))
-//	if address == nil {
-//		address := msg.Address
-//		bz, _ := keeper.cdc.MarshalBinary(address)
-//		store.Set([]byte(msg.Address), bz)
-//		return msg.Address, nil
-//	}
-//	return nil, ErrAccountAddressExist("Address already registered as MasterNode")
-//}
-//
-//func (keeper Keeper) StoreKey() sdk.StoreKey {
-//	return keeper.sentStoreKey
-//}
+func (keeper Keeper) RegisterMasterNode(ctx sdk.Context, msg MsgRegisterMasterNode) (sdk.AccAddress, sdk.Error) {
+	sentkey := msg.Address
+	store := ctx.KVStore(keeper.sentStoreKey)
+	address := store.Get([]byte(sentkey))
+	if address == nil {
+		address := msg.Address
+		bz, _ := keeper.cdc.MarshalBinaryBare(address)
+		store.Set([]byte(msg.Address), bz)
+		return msg.Address, nil
+	}
+	return nil, ErrAccountAddressExist("Address already registered as MasterNode")
+}
+
+func (keeper Keeper) StoreKey() sdk.StoreKey {
+	return keeper.sentStoreKey
+}
 //
 //func (keeper Keeper) DeleteVpnService(ctx sdk.Context, msg MsgDeleteVpnUser) (sdk.AccAddress, sdk.Error) {
 //

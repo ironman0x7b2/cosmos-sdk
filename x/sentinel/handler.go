@@ -11,8 +11,8 @@ func NewHandler(k Keeper) sdk.Handler {
 			return handleRegisterVpnService(ctx, k, msg)
 		//case MsgDeleteVpnUser:
 		//	return handleDeleteVpnUser(ctx, k, msg)
-		//case MsgRegisterMasterNode:
-		//	return handleMsgRegisterMasterNode(ctx, k, msg)
+		case MsgRegisterMasterNode:
+			return handleMsgRegisterMasterNode(ctx, k, msg)
 		//case MsgDeleteMasterNode:
 		//	return handleMsgDeleteMasterNode(ctx, k, msg)
 		//case MsgPayVpnService:
@@ -29,17 +29,17 @@ func NewHandler(k Keeper) sdk.Handler {
 	}
 }
 
-//func handleMsgRegisterMasterNode(ctx sdk.Context, keeper Keeper, msg MsgRegisterMasterNode) sdk.Result {
-//	_, err := keeper.RegisterMasterNode(ctx, msg)
-//	if err != nil {
-//		return err.Result()
-//	}
-//	d, _ := keeper.cdc.MarshalJSON(msg)
-//	return sdk.Result{
-//		Tags: msg.Tags(),
-//		Data: d,
-//	}
-//}
+func handleMsgRegisterMasterNode(ctx sdk.Context, keeper Keeper, msg MsgRegisterMasterNode) sdk.Result {
+	_, err := keeper.RegisterMasterNode(ctx, msg)
+	if err != nil {
+		return err.Result()
+	}
+	d, _ := keeper.cdc.MarshalJSON(msg)
+	return sdk.Result{
+		Tags: msg.Tags(),
+		Data: d,
+	}
+}
 //
 //func handleMsgMsgSendTokens(ctx sdk.Context, keeper Keeper, msg MsgSendTokens) sdk.Result {
 //	address, err := keeper.SendTokens(ctx, msg)
