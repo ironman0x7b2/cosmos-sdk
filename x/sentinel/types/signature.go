@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/sentinel/rest"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/encoding/amino"
 	"github.com/tendermint/tendermint/libs/bech32"
@@ -77,7 +76,7 @@ func GetVPNSignature(address sdk.AccAddress, ip string, ppgb int64, netspeed int
 	return sdk.MustSortJSON(bz)
 }
 
-func GetBech32Signature(sign rest.Signature) (string, error) {
+func GetBech32Signature(sign crypto.PubKey) (string, error) {
 	return bech32.ConvertAndEncode("", sign.Bytes())
 }
 

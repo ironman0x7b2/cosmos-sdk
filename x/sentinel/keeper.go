@@ -8,8 +8,8 @@ import (
 
 	"crypto/md5"
 	"encoding/hex"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	senttype "github.com/cosmos/cosmos-sdk/x/sentinel/types"
