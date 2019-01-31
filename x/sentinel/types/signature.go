@@ -2,8 +2,12 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/sentinel/rest"
 	"github.com/tendermint/tendermint/crypto"
+	"github.com/tendermint/tendermint/crypto/encoding/amino"
+	"github.com/tendermint/tendermint/libs/bech32"
 )
 
 type ClientSignature struct {
@@ -71,4 +75,27 @@ func GetVPNSignature(address sdk.AccAddress, ip string, ppgb int64, netspeed int
 
 	}
 	return sdk.MustSortJSON(bz)
+}
+
+func GetBech32Signature(sign rest.Signature) (string, error) {
+	return bech32.ConvertAndEncode("", sign.Bytes())
+}
+
+func GetBech64Signature(address string) (pk crypto.PubKey, err error) {
+	hrp, bz, err := DecodeAndConvert(address)
+	if err != nil {
+		return nil, err
+	}
+	if hrp != "" {
+		return nil, fmt.Errorf("invalid bech32 prefix. Expected %s, Got %s", "", hrp)
+	}
+
+	//pk, err = cryptoAmino.SignatureFromBytes(bz)
+	pk, err = cryptoAmino.PubKeyFromBytes(bz)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return pk, nil
 }

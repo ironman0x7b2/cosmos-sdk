@@ -38,32 +38,25 @@ type MsgRegisterMasterNode struct {
 }
 
 type MsgDeleteVpnUser struct {
+	BaseReq 	  utils.BaseReq `json:"base_req"`
 	Address  string `json:"address", omitempty`
-	Name     string `json:"name"`
-	Password string `json:"password"`
-	Gas      int64  `json:"gas"`
 }
 type MsgDeleteMasterNode struct {
 	BaseReq 	  utils.BaseReq `json:"base_req"`
 }
 type MsgPayVpnService struct {
+	BaseReq 	  utils.BaseReq `json:"base_req"`
 	Coins        string `json:"amount", omitempty`
 	Vpnaddr      string `json:"vaddress", omitempty`
-	Localaccount string `json:"name"`
-	Password     string `json:"password"`
-	Gas          int64  `json:"gas"`
 	SigName      string `json:"sig_name"`
 	SigPassword  string `json:"sig_password"`
 }
-
 type MsgGetVpnPayment struct {
+	BaseReq 	  utils.BaseReq `json:"base_req"`
 	Coins        string `json:"amount"`
 	Sessionid    string `json:"session_id"`
 	Counter      int64  `json:"counter"`
-	Localaccount string `json:"name"`
-	Gas          int64  `json:"gas"`
 	IsFinal      bool   `json:"isfinal"`
-	Password     string `json:"password"`
 	Signature    string `json:"sign"`
 }
 
@@ -73,12 +66,11 @@ type MsgRefund struct {
 }
 
 type ClientSignature struct {
+	BaseReq 	  utils.BaseReq `json:"base_req"`
 	Coins        string `json:"amount"`
 	Sessionid    string `json:"session_id"`
 	Counter      int64  `json:"counter"`
 	IsFinal      bool   `json:"isfinal"`
-	Localaccount string `json:"name"`
-	Password     string `json:"password"`
 }
 
 type Response struct {
@@ -90,9 +82,7 @@ type Response struct {
 }
 
 type SendTokens struct {
-	Name      string `json:"name"`
-	Password  string `json:"password"`
+	BaseReq 	  utils.BaseReq `json:"base_req"`
 	ToAddress string `json:"to"`
 	Coins     string `json:"amount"`
-	Gas       int64  `json:"gas"`
 }
