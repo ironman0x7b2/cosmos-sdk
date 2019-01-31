@@ -451,68 +451,35 @@ func deleteMasterHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Key
 			return
 		}
 		json.Unmarshal(body, &msg)
-		//if msg.Address == "" {
-		//	w.WriteHeader(http.StatusBadRequest)
-		//	w.Write([]byte(" entered invalid address."))
-		//	return
-		//}
-		//Maddr, err := sdk.AccAddressFromBech32(msg.Address)
-		//if err != nil {
-		//	w.WriteHeader(http.StatusBadRequest)
-		//	w.Write([]byte(err.Error()))
-		//	return
-		//}
+		if msg.Address == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(" entered invalid address."))
+			fmt.Println("hereeeee",msg.Address)
+			return
+		}
+
 		info, err := kb.Get(msg.BaseReq.Name)
 		if err != nil {
 			utils.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
-
 		addr := sdk.AccAddress(info.GetPubKey().Address())
 		fmt.Println("Address is: ",addr)
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
 
-		//Maddr, err := sdk.AccAddressFromBech32(msg.Address)
-		//if err != nil {
-		//	w.WriteHeader(http.StatusBadRequest)
-		//	w.Write([]byte(err.Error()))
-		//	return
-		//}
-
-		//ctx = ctx.WithGas(msg.Gas)
-		//ctx = ctx.WithFromAddressName(msg.Name)
-		//addr, err := ctx.GetFromAddress()
-		//if err != nil {
-		//	sdk.ErrInvalidAddress("The given Address is Invalid")
-		//}
-		//ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
-		//acc, err := ctx.GetAccountNumber(addr)
-		//seq, err := ctx.NextSequence(addr)
-		//ctx = ctx.WithSequence(seq)
-		//ctx = ctx.WithAccountNumber(acc)
+		Maddr, err := sdk.AccAddressFromBech32(msg.Address)
+		//fmt.Println("hereee",Maddr)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
 
 
-		//msg1 := sentinel.NewMsgDeleteMasterNode(addr, Maddr)
-		//utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
-
-		//txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
-		//if err != nil {
-		//	w.WriteHeader(http.StatusUnauthorized)
-		//	w.Write([]byte(err.Error()))
-		//	return
-		//}
-		//res, err := ctx.BroadcastTx(txBytes)
-		//if err != nil {
-		//	w.WriteHeader(http.StatusInternalServerError)
-		//	w.Write([]byte(err.Error()))
-		//	return
-		//}
-		//respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
-		//data, err := json.MarshalIndent(respon, "", " ")
-		//w.Write(data)
-
+		msg1 := sentinel.NewMsgDeleteMasterNode(addr, Maddr)
+		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
 
 	}
 	return nil

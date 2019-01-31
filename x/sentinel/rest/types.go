@@ -43,6 +43,7 @@ type MsgDeleteVpnUser struct {
 }
 type MsgDeleteMasterNode struct {
 	BaseReq 	  utils.BaseReq `json:"base_req"`
+	Address  string `json:"address"`
 }
 type MsgPayVpnService struct {
 	BaseReq 	  utils.BaseReq `json:"base_req"`
