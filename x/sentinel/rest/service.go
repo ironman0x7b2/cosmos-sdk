@@ -3,21 +3,22 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/client/context"
 	"github.com/cosmos/cosmos-sdk/client/utils"
+	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/sentinel"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/encoding/amino"
+	"github.com/tendermint/tendermint/libs/bech32"
+	"github.com/tendermint/tendermint/libs/common"
+	ioutill "io/ioutil"
 	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
-	ioutill "io/ioutil"
-	"github.com/cosmos/cosmos-sdk/client/context"
-	"github.com/tendermint/tendermint/libs/common"
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/tendermint/tendermint/libs/bech32"
 )
 
 /**
@@ -145,7 +146,7 @@ func NewResponse(success bool, hash string, height int64, data []byte, tags []co
 		Tags:    tags,
 	}
 }
-func registervpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+func registervpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var a int64
@@ -207,14 +208,17 @@ func registervpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keyb
 		}
 
 		addr := sdk.AccAddress(info.GetPubKey().Address())
-		fmt.Println("Address is: ",addr)
+
+		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
+		account, err := decoder(res)
 		if err != nil {
-			sdk.ErrInvalidAddress("The given Address is Invalid")
+			fmt.Println("Error while decoding account: ",account)
 		}
 
-		msg1 := sentinel.NewMsgRegisterVpnService(addr, msg.Ip, msg.Ppgb, msg.UploadSpeed, msg.DownloadSpeed, msg.EncMethod, msg.Latitude, msg.Longitude, msg.City, msg.Country, msg.NodeType, msg.Version)
+		msg.BaseReq.AccountNumber = account.GetAccountNumber()
+		msg.BaseReq.Sequence = account.GetSequence()
 
-		fmt.Println("Message is ", msg1)
+		msg1 := sentinel.NewMsgRegisterVpnService(addr, msg.Ip, msg.Ppgb, msg.UploadSpeed, msg.DownloadSpeed, msg.EncMethod, msg.Latitude, msg.Longitude, msg.City, msg.Country, msg.NodeType, msg.Version)
 		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
 
 	}
@@ -257,7 +261,7 @@ func registervpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keyb
 //*             ]
 //* }
 //*/
-func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		msg := MsgRegisterMasterNode{}
@@ -280,28 +284,15 @@ func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
+		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
+		account, err := decoder(res)
+		if err != nil {
+			fmt.Println("Error while decoding account: ",account)
+		}
 
+		msg.BaseReq.AccountNumber = account.GetAccountNumber()
+		msg.BaseReq.Sequence = account.GetSequence()
 
-
-
-		//ctx = ctx.WithFromAddressName(msg.Name)
-		//ctx = ctx.WithGas(msg.Gas)
-		//addr, err := ctx.GetFromAddress()
-		//if err != nil {
-		//	sdk.ErrInvalidAddress("The given Address is Invalid")
-		//}
-		//ctx = ctx.WithGas(msg.Gas)
-		//ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
-		//
-		//acc, err := ctx.GetAccountNumber(addr)
-		//seq, err := ctx.NextSequence(addr)
-		//ctx = ctx.WithSequence(seq)
-		//ctx = ctx.WithAccountNumber(acc)
-		//if err != nil {
-		//	w.Write([]byte("account number error"))
-		//	w.Write([]byte(string(acc)))
-		//
-		//}
 
 		msg1 := sentinel.NewMsgRegisterMasterNode(addr)
 
@@ -364,7 +355,7 @@ func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.
 *  ]
 }
 */
-func deleteVpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+func deleteVpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var msg MsgDeleteVpnUser
@@ -397,7 +388,14 @@ func deleteVpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybas
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
+		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
+		account, err := decoder(res)
+		if err != nil {
+			fmt.Println("Error while decoding account: ",account)
+		}
 
+		msg.BaseReq.AccountNumber = account.GetAccountNumber()
+		msg.BaseReq.Sequence = account.GetSequence()
 		msg1 := sentinel.NewMsgDeleteVpnUser(addr, Vaddr)
 		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
 
@@ -441,7 +439,7 @@ func deleteVpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybas
 // *  ]
 //}
 //*/
-func deleteMasterHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+func deleteMasterHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var msg MsgDeleteMasterNode
@@ -451,35 +449,68 @@ func deleteMasterHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Key
 			return
 		}
 		json.Unmarshal(body, &msg)
-		if msg.Address == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(" entered invalid address."))
-			fmt.Println("hereeeee",msg.Address)
-			return
-		}
-
+		//if msg.Address == "" {
+		//	w.WriteHeader(http.StatusBadRequest)
+		//	w.Write([]byte(" entered invalid address."))
+		//	return
+		//}
+		//Maddr, err := sdk.AccAddressFromBech32(msg.Address)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusBadRequest)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
 		info, err := kb.Get(msg.BaseReq.Name)
 		if err != nil {
 			utils.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
+
 		addr := sdk.AccAddress(info.GetPubKey().Address())
 		fmt.Println("Address is: ",addr)
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
 
-		Maddr, err := sdk.AccAddressFromBech32(msg.Address)
-		//fmt.Println("hereee",Maddr)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-			return
-		}
+		//Maddr, err := sdk.AccAddressFromBech32(msg.Address)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusBadRequest)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+
+		//ctx = ctx.WithGas(msg.Gas)
+		//ctx = ctx.WithFromAddressName(msg.Name)
+		//addr, err := ctx.GetFromAddress()
+		//if err != nil {
+		//	sdk.ErrInvalidAddress("The given Address is Invalid")
+		//}
+		//ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
+		//acc, err := ctx.GetAccountNumber(addr)
+		//seq, err := ctx.NextSequence(addr)
+		//ctx = ctx.WithSequence(seq)
+		//ctx = ctx.WithAccountNumber(acc)
 
 
-		msg1 := sentinel.NewMsgDeleteMasterNode(addr, Maddr)
-		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
+		//msg1 := sentinel.NewMsgDeleteMasterNode(addr, Maddr)
+		//utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
+
+		//txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusUnauthorized)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+		//res, err := ctx.BroadcastTx(txBytes)
+		//if err != nil {
+		//	w.WriteHeader(http.StatusInternalServerError)
+		//	w.Write([]byte(err.Error()))
+		//	return
+		//}
+		//respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		//data, err := json.MarshalIndent(respon, "", " ")
+		//w.Write(data)
+
 
 	}
 	return nil
@@ -558,7 +589,7 @@ func validateIp(host string) bool {
 *          ]
 }
 */
-func PayVpnServiceHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+func PayVpnServiceHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -626,7 +657,14 @@ func PayVpnServiceHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Ke
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
+		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
+		account, err := decoder(res)
+		if err != nil {
+			fmt.Println("Error while decoding account: ",account)
+		}
 
+		msg.BaseReq.AccountNumber = account.GetAccountNumber()
+		msg.BaseReq.Sequence = account.GetSequence()
 		msg1 := sentinel.NewMsgPayVpnService(coins, vaddr, addr, info.GetPubKey())
 		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
 
@@ -650,7 +688,7 @@ func PayVpnServiceHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Ke
 * 10lz2f928xpzsyggqhc9mu80qj59vx0rc6sedxmsfhca8ysuhhtgqypar3h4ty0pgftwqygp6vm54drttw5grlz4p5n238cvzxe2vpxmu6hhnqvt0uxstg7et4vdqhm4v
 */
 
-func SendSignHandlerFn(kb keys.Keybase) http.HandlerFunc {
+func SendSignHandlerFn(kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		msg := ClientSignature{}
@@ -772,7 +810,7 @@ func clientStdSignBytes(coins sdk.Coins, sessionid []byte, counter int64, isfina
 * }
 */
 
-func RefundHandleFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+func RefundHandleFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		msg := MsgRefund{}
@@ -798,7 +836,14 @@ func RefundHandleFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) h
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
+		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
+		account, err := decoder(res)
+		if err != nil {
+			fmt.Println("Error while decoding account: ",account)
+		}
 
+		msg.BaseReq.AccountNumber = account.GetAccountNumber()
+		msg.BaseReq.Sequence = account.GetSequence()
 
 		msg1 := sentinel.NewMsgRefund(addr, []byte(msg.Sessionid))
 		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
@@ -864,7 +909,7 @@ func RefundHandleFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) h
 *}
 */
 
-func GetVpnPaymentHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+func GetVpnPaymentHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		msg := MsgGetVpnPayment{}
@@ -925,6 +970,14 @@ func GetVpnPaymentHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Ke
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
+		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
+		account, err := decoder(res)
+		if err != nil {
+			fmt.Println("Error while decoding account: ",account)
+		}
+
+		msg.BaseReq.AccountNumber = account.GetAccountNumber()
+		msg.BaseReq.Sequence = account.GetSequence()
 		msg1 := sentinel.NewMsgGetVpnPayment(coins, []byte(msg.Sessionid), msg.Counter, addr, sig, msg.IsFinal)
 
 		fmt.Println("Message is ", msg1)
@@ -977,7 +1030,7 @@ func getBech64Signature(address string) (pk crypto.PubKey, err error) {
 *}
 */
 
-func SendTokenHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase) http.HandlerFunc {
+func SendTokenHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		msg := SendTokens{}
@@ -1015,6 +1068,14 @@ func SendTokenHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybas
 		}
 
 		addr := sdk.AccAddress(info.GetPubKey().Address())
+		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
+		account, err := decoder(res)
+		if err != nil {
+			fmt.Println("Error while decoding account: ",account)
+		}
+
+		msg.BaseReq.AccountNumber = account.GetAccountNumber()
+		msg.BaseReq.Sequence = account.GetSequence()
 		msg1 := sentinel.NewMsgSendTokens(addr, coins, to)
 		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
 	}

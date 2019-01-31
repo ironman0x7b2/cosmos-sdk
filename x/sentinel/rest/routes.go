@@ -12,44 +12,44 @@ func ServiceRoutes(ctx context.CLIContext, r *mux.Router, cdc *codec.Codec, kb k
 
 	r.HandleFunc(
 		"/register/vpn", /// service provider
-		registervpnHandlerFn(ctx, cdc, kb),
+		registervpnHandlerFn(ctx, cdc, kb, context.GetAccountDecoder(cdc)),
 	).Methods("POST")
 
 	r.HandleFunc(
 		"/send",
-		SendTokenHandlerFn(ctx, cdc, kb),
+		SendTokenHandlerFn(ctx, cdc, kb, context.GetAccountDecoder(cdc)),
 	).Methods("POST")
 
 	r.HandleFunc(
 		"/register/master", // master node
-		registermasterdHandlerFn(ctx, cdc, kb),
+		registermasterdHandlerFn(ctx, cdc, kb, context.GetAccountDecoder(cdc)),
 	).Methods("POST")
 
 	r.HandleFunc(
 		"/refund", // client
-		RefundHandleFn(ctx, cdc, kb),
+		RefundHandleFn(ctx, cdc, kb, context.GetAccountDecoder(cdc)),
 	).Methods("POST")
 
 	r.HandleFunc(
 		"/master", // owner  or by vote
-		deleteMasterHandlerFn(ctx, cdc, kb),
+		deleteMasterHandlerFn(ctx, cdc, kb, context.GetAccountDecoder(cdc)),
 	).Methods("DELETE")
 	//
 	r.HandleFunc(
 		"/vpn", // master node deletes service provider
-		deleteVpnHandlerFn(ctx, cdc, kb),
+		deleteVpnHandlerFn(ctx, cdc, kb, context.GetAccountDecoder(cdc)),
 	).Methods("DELETE")
 	r.HandleFunc(
 		"/vpn/pay", // client
-		PayVpnServiceHandlerFn(ctx, cdc, kb),
+		PayVpnServiceHandlerFn(ctx, cdc, kb, context.GetAccountDecoder(cdc)),
 	).Methods("POST")
 	r.HandleFunc(
 		"/send-sign", // Off-chain  Tx (client to service provider)
-		SendSignHandlerFn(kb),
+		SendSignHandlerFn(kb, context.GetAccountDecoder(cdc)),
 	).Methods("POST")
 	r.HandleFunc(
 		"/vpn/getpayment", // service provider to chain (from kv store)
-		GetVpnPaymentHandlerFn(ctx, cdc, kb),
+		GetVpnPaymentHandlerFn(ctx, cdc, kb, context.GetAccountDecoder(cdc)),
 	).Methods("POST")
 
 }
