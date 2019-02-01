@@ -208,7 +208,7 @@ func registervpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keyb
 		}
 
 		addr := sdk.AccAddress(info.GetPubKey().Address())
-
+		fmt.Println("Address is: ",addr)
 		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
 		account, err := decoder(res)
 		if err != nil {
@@ -626,6 +626,7 @@ func PayVpnServiceHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Ke
 			return
 		}
 		vaddr, err := sdk.AccAddressFromBech32(msg.Vpnaddr)
+		fmt.Println("vaddr:",vaddr)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
@@ -651,13 +652,17 @@ func PayVpnServiceHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Ke
 			w.Write([]byte(err.Error()))
 			return
 		}
-
-		addr := sdk.AccAddress(info.GetPubKey().Address())
+		keyinfo, err := kb.Get(msg.BaseReq.Name)
+		addr := sdk.AccAddress(keyinfo.GetPubKey().Address())
 		fmt.Println("Address is: ",addr)
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
 		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
+		if err != nil {
+			fmt.Println("Error while getting res: ",err)
+		}
+		fmt.Println("res is: ",res)
 		account, err := decoder(res)
 		if err != nil {
 			fmt.Println("Error while decoding account: ",account)
@@ -1068,6 +1073,7 @@ func SendTokenHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybas
 		}
 
 		addr := sdk.AccAddress(info.GetPubKey().Address())
+		fmt.Println("Address is: ",addr)
 		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
 		account, err := decoder(res)
 		if err != nil {

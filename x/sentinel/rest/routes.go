@@ -56,10 +56,10 @@ func ServiceRoutes(ctx context.CLIContext, r *mux.Router, cdc *codec.Codec, kb k
 
 func QueryRoutes(ctx context.CLIContext, r *mux.Router, cdc *codec.Codec, keeper sentinel.Keeper) {
 
-	//r.HandleFunc(
-	//	"/session/{sessionId}",
-	//	querySessionHandlerFn(cdc, ctx, keeper),
-	//).Methods("GET")
+	r.HandleFunc(
+		"/session/{sessionId}",
+		querySessionHandlerFn(cdc, ctx),
+	).Methods("GET")
 
 }
 

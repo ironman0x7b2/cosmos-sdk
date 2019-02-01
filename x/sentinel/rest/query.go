@@ -1,5 +1,17 @@
 package rest
 
+import (
+	"encoding/json"
+	"github.com/gorilla/mux"
+	"github.com/tendermint/tendermint/crypto"
+	"net/http"
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/client/context"
+	"time"
+)
+
+
 const (
 	storeName = "sentinel"
 )
@@ -33,25 +45,36 @@ const (
 *}
  */
 
-//func querySessionHandlerFn(cdc *codec.Codec, ctx context.CLIContext, k sent.Keeper) http.HandlerFunc {
-//	return func(w http.ResponseWriter, r *http.Request) {
-//		w.Header().Set("Content-Type", "application/json")
-//		vars := mux.Vars(r)
-//		var clientSession senttype.Session
-//		sessionId := vars["sessionId"]
-//		res, err := ctx.QueryStore([]byte(sessionId), storeName)
-//		if err != nil {
-//			w.WriteHeader(http.StatusInternalServerError)
-//			w.Write([]byte("couldn't query session."))
-//			return
-//		}
-//		err = cdc.UnmarshalBinaryBare(res, &clientSession)
-//		if err != nil {
-//			w.WriteHeader(http.StatusInternalServerError)
-//			w.Write([]byte("couldn't marshall query result. Error: "))
-//			return
-//		}
-//		bz, err := json.Marshal(clientSession)
-//		w.Write(bz)
-//	}
-//}
+type session struct {
+	TotalLockedCoins sdk.Coins
+	ReleasedCoins    sdk.Coins
+	Counter          int64
+	Timestamp        time.Time
+	VpnPubKey        crypto.PubKey
+	CPubKey          crypto.PubKey
+	CAddress         sdk.AccAddress
+	Status           uint8
+}
+
+func querySessionHandlerFn(cdc *codec.Codec, ctx context.CLIContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		vars := mux.Vars(r)
+		var clientSession session
+		sessionId := vars["sessionId"]
+		res, err := ctx.QueryStore([]byte(sessionId), storeName)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't query session."))
+			return
+		}
+		err = cdc.UnmarshalBinaryBare(res, &clientSession)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't marshall query result. Error: "))
+			return
+		}
+		bz, err := json.Marshal(clientSession)
+		w.Write(bz)
+	}
+}
