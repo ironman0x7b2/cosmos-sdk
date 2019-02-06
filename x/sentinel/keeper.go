@@ -15,6 +15,7 @@ import (
 	senttype "github.com/cosmos/cosmos-sdk/x/sentinel/types"
 	"github.com/tendermint/tendermint/crypto"
 	"strconv"
+	"fmt"
 )
 
 type PubKeyEd25519 [32]byte
@@ -191,8 +192,10 @@ func (keeper Keeper) GetVpnPayment(ctx sdk.Context, msg MsgGetVpnPayment) ([]byt
 	}
 	ClientPubkey := clientSession.CPubKey
 	signBytes := senttype.ClientStdSignBytes(msg.Coins, []byte(msg.Sessionid), msg.Counter, msg.IsFinal)
-	if !ClientPubkey.VerifyBytes(signBytes, msg.Signature.Bytes()) {
-		return nil, nil, sdk.NewInt(0), sdk.ErrUnauthorized("signature verification failed")
+
+
+	if !ClientPubkey.VerifyBytes(signBytes, msg.Signature) {
+		return nil, nil, sdk.NewInt(0), sdk.ErrUnauthorized("Invalid sign")
 	}
 	clientSessionData := clientSession
 	if msg.Counter > clientSessionData.Counter {

@@ -8,17 +8,6 @@ import (
 )
 var cdc = amino.NewCodec()
 
-type Signature interface {
-	Bytes() []byte
-	IsZero() bool
-	Equals(Signature) bool
-}
-
-func SignatureFromBytes(pubKeyBytes []byte) (pubKey Signature, err error) {
-	err = cdc.UnmarshalBinaryBare(pubKeyBytes, &pubKey)
-	return
-}
-
 type MsgRegisterVpnService struct {
 	BaseReq 	  utils.BaseReq `json:"base_req"`
 	Ip            string `json:"ip"`

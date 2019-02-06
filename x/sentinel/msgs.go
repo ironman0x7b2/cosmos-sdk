@@ -358,12 +358,12 @@ type MsgGetVpnPayment struct {
 	Coins     sdk.Coins
 	Sessionid []byte
 	Counter   int64
-	Signature crypto.PubKey
+	Signature []byte
 	From      sdk.AccAddress
 	IsFinal   bool
 }
 
-func NewMsgGetVpnPayment(coin sdk.Coins, sid []byte, counter int64, addr sdk.AccAddress, sign crypto.PubKey, isfinal bool) MsgGetVpnPayment {
+func NewMsgGetVpnPayment(coin sdk.Coins, sid []byte, counter int64, sign []byte, addr sdk.AccAddress, isfinal bool) MsgGetVpnPayment {
 	return MsgGetVpnPayment{
 		Coins:     coin,
 		Sessionid: sid,

@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/cosmos/cosmos-sdk/client/context"
@@ -8,11 +9,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/sentinel"
 	"github.com/cosmos/cosmos-sdk/x/auth"
+	"github.com/cosmos/cosmos-sdk/x/sentinel"
 	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/encoding/amino"
-	"github.com/tendermint/tendermint/libs/bech32"
 	"github.com/tendermint/tendermint/libs/common"
 	ioutill "io/ioutil"
 	"net/http"
@@ -676,6 +675,7 @@ func PayVpnServiceHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Ke
 	}
 	return nil
 }
+
 //
 //To create client signature....... This is not a transaction......
 
@@ -729,16 +729,15 @@ func SendSignHandlerFn(kb keys.Keybase, decoder auth.AccountDecoder) http.Handle
 		}
 
 		bz := clientStdSignBytes(coins, []byte(msg.Sessionid), msg.Counter, msg.IsFinal)
+		
+		fmt.Println("}}}}}}}}}}}}}}}}}}}}}}}}}}]",string(bz))
+
 		sign, _, err := kb.Sign(msg.BaseReq.Name, msg.BaseReq.Password, bz)
 		if err != nil {
 			w.Write([]byte(" Signature failed"))
 			return
 		}
-		//s, err := senttype.GetBech32Signature(sign)
-		//if err != nil {
-		//	w.Write([]byte("signature marshal failed"))
-		//}
-		w.Write([]byte(sign))
+		 w.Write([]byte(base64.StdEncoding.EncodeToString(sign)))
 	}
 	return nil
 }
@@ -957,11 +956,9 @@ func GetVpnPaymentHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Ke
 			sdk.ErrInternal("Parse Coins failed")
 		}
 
-		var sig crypto.PubKey
-		sig, err = getBech64Signature(msg.Signature)
-		cdc.UnmarshalBinaryBare([]byte(msg.Signature), &sig)
-		if err != nil {
-			w.Write([]byte("Signature from string conversion failed"))
+		sig , err := base64.StdEncoding.DecodeString(msg.Signature)
+		if err!=nil{
+			// Handle your error
 		}
 
 		info, err := kb.Get(msg.BaseReq.Name)
@@ -983,7 +980,7 @@ func GetVpnPaymentHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Ke
 
 		msg.BaseReq.AccountNumber = account.GetAccountNumber()
 		msg.BaseReq.Sequence = account.GetSequence()
-		msg1 := sentinel.NewMsgGetVpnPayment(coins, []byte(msg.Sessionid), msg.Counter, addr, sig, msg.IsFinal)
+		msg1 := sentinel.NewMsgGetVpnPayment(coins, []byte(msg.Sessionid), msg.Counter,  sig,addr, msg.IsFinal)
 
 		fmt.Println("Message is ", msg1)
 		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
@@ -991,8 +988,11 @@ func GetVpnPaymentHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Ke
 	return nil
 }
 
-func getBech64Signature(address string) (pk crypto.PubKey, err error) {
-	hrp, bz, err := bech32.DecodeAndConvert(address)
+func getBech64Signature(address string) (pkk crypto.PubKey, err error) {
+	hrp, bz, err := Decode(address)
+	fmt.Println("hrp is: ",hrp)
+	fmt.Println("bz is: ",bz)
+	fmt.Println("err in decoding is: ",err)
 	if err != nil {
 		return nil, err
 	}
@@ -1000,8 +1000,11 @@ func getBech64Signature(address string) (pk crypto.PubKey, err error) {
 		return nil, fmt.Errorf("invalid bech32 prefix. Expected %s, Got %s", "", hrp)
 	}
 
-	//pk, err = cryptoAmino.SignatureFromBytes(bz)
-	pk, err = cryptoAmino.PubKeyFromBytes(bz)
+	//pk, err = cryptoAmino.SignatureFromBytes(bz)  
+	// pk, err = cryptoAmino.PubKeyFromBytes(bz)
+	pk, err := pubKeyFromBytes(bz)
+	fmt.Println("pk is: ",pk)
+	fmt.Println("err in pk is: ",pk)
 
 	if err != nil {
 		return nil, err
@@ -1009,7 +1012,14 @@ func getBech64Signature(address string) (pk crypto.PubKey, err error) {
 
 	return pk, nil
 }
-//
+
+
+func pubKeyFromBytes(pubKeyBytes []byte) (pubKey crypto.PubKey, err error) {
+	err = cdc.UnmarshalBinaryBare(pubKeyBytes, &pubKey)
+	fmt.Println("err while getting pubkeyfromBytes: ",err)
+	return
+}
+
 /**
 * @api {post} /send To send money to account.
 * @apiName sendTokens
