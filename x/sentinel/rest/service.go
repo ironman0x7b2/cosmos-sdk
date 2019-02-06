@@ -29,6 +29,7 @@ import (
 * garden sunset night final child popular fall ostrich amused diamond lift stool useful brisk very half rice evil any behave merge shift ring chronic
 * }
 */
+
 /**
 * @api {post} /keys To get account.
 * @apiName getAccount
@@ -70,9 +71,10 @@ import (
 * @apiParam {String} location_country  Country Location of service provider.
 * @apiParam {String} node_type  Node type.
 * @apiParam {String} version version.
-* @apiParam {String} name Account name of service provider.
-* @apiParam {string} password password of account.
-* @apiParam {Number} gas Gas value.
+* @apiParam {Object} base_req Base request Object
+* @apiParam {String} base_req.name Account name of service provider.
+* @apiParam {string} base_req.password Password of account.
+* @apiParam {string} base_req.chain_id Chain ID
 * @apiError AccountAlreadyExists VPN service provider already exists
 * @apiError NetSpeedInvalidError Netspeed is Invalid
 * @apiError IpAddressInvalidError IP address is Invalid
@@ -224,42 +226,7 @@ func registervpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keyb
 	return nil
 }
 
-///**
-//* @api {post} /register/master To register Master Node.
-//* @apiName registerMasterNode
-//* @apiGroup Sentinel-Tendermint
-//* @apiParam {String} name  Account name of Master Node.
-//* @apiParam {Number} gas Gas value.
-//* @apiParam {string} password password of account.
-//* @apiError AccountAlreadyExists Master Node already exists
-//* @apiErrorExample AccountAlreadyExists-Response:
-//*{
-//* checkTx failed: (1245197) Msg 0 failed: === ABCI Log ===
-//* Codespace: 19
-//* Code:      13
-//* ABCICode:  1245197
-//* Error:     --= Error =--
-//* Data: common.FmtError{format:"Address already Registered as VPN node", args:[]interface {}(nil)}
-//* Msg Traces:
-//* --= /Error =--
-//*
-//*=== /ABCI Log ===
-//*}
-//* @apiSuccessExample Response:
-//{
-//*{
-// *   "Success": true,
-//*    "Hash": "CF8E073D624F7FA6A41C3CAD9B4A1DB693234225",
-//*    "Height": 343,
-//*    "Data": "eyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YWx1ZSI6eyJGc3BlZWQiOiIxMiIsIlBwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19==",
-//*    "Tags": [
-//*        {
-//*             "key": "dnBuIHJlZ2lzdGVyZWQgYWRkcmVzcw==",
-//*             "value": "Y29zbW9zYWNjYWRkcjFlZ3RydjdxdGU0NnY2cXEzN3p0YzB2dzRuMmhrejZuempycDVhZQ=="
-//*         }
-//*             ]
-//* }
-//*/
+
 func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -297,23 +264,6 @@ func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.
 
 		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
 
-
-		//txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
-		//if err != nil {
-		//	w.WriteHeader(http.StatusUnauthorized)
-		//	w.Write([]byte(err.Error()))
-		//	return
-		//}
-		//
-		//res, err := ctx.BroadcastTx(txBytes)
-		//if err != nil {
-		//	w.WriteHeader(http.StatusInternalServerError)
-		//	w.Write([]byte(err.Error()))
-		//	return
-		//}
-		//respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
-		//data, err := json.MarshalIndent(respon, "", " ")
-		//w.Write(data)
 	}
 	return nil
 }
@@ -323,9 +273,10 @@ func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.
 * @apiName  deleteVpnNode
 * @apiGroup Sentinel-Tendermint
 * @apiParam {String} address  Address of VPN Node which we want to delete.
-* @apiParam {String} name AccountName of the person who is deleting the VPN node.
-* @apiParam {string} password password of account.
-* @apiParam {Number} gas Gas value.
+* @apiParam {Object} base_req Base request Object
+* @apiParam {String} base_req.name AccountName of the person who is deleting the VPN node.
+* @apiParam {string} base_req.password Password of account.
+* @apiParam {string} base_req.chain_id Chain ID
 * @apiError AccountNotExists VPN Node not exists
 * @apiErrorExample AccountNotExists-Response:
 *{
@@ -342,18 +293,19 @@ func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.
 *}
 * @apiSuccessExample Response:
 {
-*   "Success": true,
-*   "Hash": "32EF9DFB6BC24D3159A8310F1AE438BED479466E",
-*   "Height": 3698,
-*   "Data": "FRTjZrQKAswn4UTeyJ0eXBlIjoic2VudGluZWWQiOiIxMiIsIlBwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19b1W/Usl/KB3iflg==",
-*   "Tags": [
-*       {
-*           "key": "ZGVsZXRlZCBWcG4gYWRkcmVzcw==",
-*           "value": "42a0CgLMJ+FE29Vv1LJfygd4n5Y="
-*      }
-*  ]
+ *   "Success": true,
+ *   "Hash": "32EF9DFB6BC24D3159A8310F1AE438BED479466E",
+ *   "Height": 3698,
+ *   "Data": "FRTjZrQKAswn4UTeyJ0eXBlIjoic2VudGluZWWQiOiIxMiIsIlBwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19b1W/Usl/KB3iflg==",
+ *   "Tags": [
+ *       {
+ *           "key": "ZGVsZXRlZCBWcG4gYWRkcmVzcw==",
+ *           "value": "42a0CgLMJ+FE29Vv1LJfygd4n5Y="
+ *      }
+ *  ]
 }
 */
+
 func deleteVpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -401,43 +353,7 @@ func deleteVpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybas
 	}
 	return nil
 }
-//
-///**
-//* @api {delete} /master To Delete Master Node.
-//* @apiName  deleteMasterNode
-//* @apiGroup Sentinel-Tendermint
-//* @apiParam {String} address  Address of Master Node which we want to delete.
-//* @apiParam {String} name AccountName of the person who is deleting the Master node.
-//* @apiParam {string} password password of account.
-//* @apiParam {Number} gas Gas value.
-//* @apiError AccountNotExists Master Node not exists
-//* @apiErrorExample AccountNotExists-Response:
-//*{
-//* checkTx failed: (1245197) Msg 0 failed: === ABCI Log ===
-//* Codespace: 19
-//* Code:      13
-//* ABCICode:  1245197s
-//* Error:     --= Error =--
-//* Data: common.FmtError{format:"Account is not exist", args:[]interface {}(nil)}
-//* Msg Traces:
-//* --= /Error =--
-//*
-//*=== /ABCI Log ===
-//*}
-//* @apiSuccessExample Response:
-//{
-// *   "Success": true,
-// *   "Hash": "32EF9DFB6BC24D3159A8310F1AE438BED479466E",
-// *   "Height": 3698,
-// *   "Data": "FRTjZrQKAswn4UeyJ0eXBlIwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19Tb1W/Usl/KB3iflg==",
-// *   "Tags": [
-// *       {
-// *           "key": "ZGVsZXRlZCBWcG4gYWRkcmVzcw==",
-// *           "value": "42a0CgLMJ+FE29Vv1LJfygd4n5Y="
-// *      }
-// *  ]
-//}
-//*/
+
 func deleteMasterHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -448,17 +364,7 @@ func deleteMasterHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Key
 			return
 		}
 		json.Unmarshal(body, &msg)
-		//if msg.Address == "" {
-		//	w.WriteHeader(http.StatusBadRequest)
-		//	w.Write([]byte(" entered invalid address."))
-		//	return
-		//}
-		//Maddr, err := sdk.AccAddressFromBech32(msg.Address)
-		//if err != nil {
-		//	w.WriteHeader(http.StatusBadRequest)
-		//	w.Write([]byte(err.Error()))
-		//	return
-		//}
+
 		info, err := kb.Get(msg.BaseReq.Name)
 		if err != nil {
 			utils.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
@@ -470,46 +376,6 @@ func deleteMasterHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Key
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
-
-		//Maddr, err := sdk.AccAddressFromBech32(msg.Address)
-		//if err != nil {
-		//	w.WriteHeader(http.StatusBadRequest)
-		//	w.Write([]byte(err.Error()))
-		//	return
-		//}
-
-		//ctx = ctx.WithGas(msg.Gas)
-		//ctx = ctx.WithFromAddressName(msg.Name)
-		//addr, err := ctx.GetFromAddress()
-		//if err != nil {
-		//	sdk.ErrInvalidAddress("The given Address is Invalid")
-		//}
-		//ctx = ctx.WithDecoder(authcmd.GetAccountDecoder(cdc))
-		//acc, err := ctx.GetAccountNumber(addr)
-		//seq, err := ctx.NextSequence(addr)
-		//ctx = ctx.WithSequence(seq)
-		//ctx = ctx.WithAccountNumber(acc)
-
-
-		//msg1 := sentinel.NewMsgDeleteMasterNode(addr, Maddr)
-		//utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
-
-		//txBytes, err := ctx.SignAndBuild(msg.Name, msg.Password, []sdk.Msg{msg1}, cdc)
-		//if err != nil {
-		//	w.WriteHeader(http.StatusUnauthorized)
-		//	w.Write([]byte(err.Error()))
-		//	return
-		//}
-		//res, err := ctx.BroadcastTx(txBytes)
-		//if err != nil {
-		//	w.WriteHeader(http.StatusInternalServerError)
-		//	w.Write([]byte(err.Error()))
-		//	return
-		//}
-		//respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
-		//data, err := json.MarshalIndent(respon, "", " ")
-		//w.Write(data)
-
 
 	}
 	return nil
@@ -541,11 +407,12 @@ func validateIp(host string) bool {
 * @apiGroup Sentinel-Tendermint
 * @apiParam {String} amount  Amount to pay for vpn service.
 * @apiParam {String} vaddress Address of the vpn service provider.
-* @apiParam {String} name Account name of Client
-* @apiParam {string} password password of account.
-* @apiParam {Number} gas Gas value.
 * @apiParam {String} sig_name NewAccountName.
 * @apiParam {String} sig_password NewAccountPassword.
+* @apiParam {Object} base_req Base request Object
+* @apiParam {String} base_req.name AccountName of the client.
+* @apiParam {string} base_req.password Password of account.
+* @apiParam {string} base_req.chain_id Chain ID
 * @apiError AccountNotExists VPN Node not exists
 * @apiError AccountNameAlreadyExists The new account name is already exist
 * @apiError InsufficientFunds  Insufficient Funds
@@ -683,11 +550,13 @@ func PayVpnServiceHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Ke
 * @api {post} /send-sign To Create sigature of the client.
 * @apiName  CreateSignature
 * @apiGroup Sentinel-Tendermint
-* @apiParam {String} name AccountName of the client.
-* @apiParam {string} password password of account.
 * @apiParam {String} session_id session-id.
 * @apiParam {String} amount Amount to create signature.
 * @apiParam {Number} counter Counter value of the sigature.
+* @apiParam {Object} base_req Base request Object
+* @apiParam {String} base_req.name AccountName of the client.
+* @apiParam {string} base_req.password Password of account.
+* @apiParam {string} base_req.chain_id Chain ID
 *@apiParam {Boolean} isfial boolean value for is this final signature or not.
 * @apiSuccessExample Response:
 * 10lz2f928xpzsyggqhc9mu80qj59vx0rc6sedxmsfhca8ysuhhtgqypar3h4ty0pgftwqygp6vm54drttw5grlz4p5n238cvzxe2vpxmu6hhnqvt0uxstg7et4vdqhm4v
@@ -765,10 +634,11 @@ func clientStdSignBytes(coins sdk.Coins, sessionid []byte, counter int64, isfina
 * @api {post} /refund To Refund the balance of client.
 * @apiName  Refund
 * @apiGroup Sentinel-Tendermint
-* @apiParam {String} name AccountName of the client.
-* @apiParam {string} password password of account.
 * @apiParam {String} session_id session-id.
-* @apiParam {Number} gas Gas value.
+* @apiParam {Object} base_req Base request Object
+* @apiParam {String} base_req.name AccountName of the client.
+* @apiParam {string} base_req.password Password of account.
+* @apiParam {string} base_req.chain_id Chain ID
 * @apiError TimeInvalidError Time is not more than 24 hours
 * @apiError InvalidSessionIdError SessionId is invalid
 * @apiErrorExample TimeInvalidError-Response:
@@ -861,11 +731,12 @@ func RefundHandleFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, d
 * @apiParam {String} amount Amount to send VPN node.
 * @apiParam {String} session_id session-id.
 * @apiParam {Number} counter Counter value.
-* @apiParam {String} name Account name of client.
-* @apiParam {Number} gas gas value.
 * @apiParam {Boolean} isfinal is this final signature or not.
-* @apiParam {string} password password of account.
 * @apiParam {string} sign signature of the client.
+* @apiParam {Object} base_req Base request Object
+* @apiParam {String} base_req.name AccountName of the vpn service provider.
+* @apiParam {string} base_req.password Password of account.
+* @apiParam {string} base_req.chain_id Chain ID
 * @apiError InvalidSessionId  SessionId is invalid
 * @apiError SignatureVerificationFailed  Invalid signature
 * @apiErrorExample InvalidSessionId-Response:
@@ -1024,11 +895,12 @@ func pubKeyFromBytes(pubKeyBytes []byte) (pubKey crypto.PubKey, err error) {
 * @api {post} /send To send money to account.
 * @apiName sendTokens
 * @apiGroup Sentinel-Tendermint
-* @apiParam {String} name Name Account holder name.
-* @apiParam {String} password Password password for account.
 * @apiParam {String} to To address.
 * @apiParam {String} amount Amount to send.
-* @apiParam {Number} gas gas value.
+* @apiParam {Object} base_req Base request Object
+* @apiParam {String} base_req.name AccountName of the sender.
+* @apiParam {string} base_req.password Password of account.
+* @apiParam {string} base_req.chain_id Chain ID
 *
 * @apiSuccessExample Response:
 *{
