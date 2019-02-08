@@ -290,6 +290,85 @@ define({ "api": [
   },
   {
     "type": "delete",
+    "url": "/master",
+    "title": "To Delete Master Node.",
+    "name": "deleteMasterNode",
+    "group": "Sentinel_Tendermint",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "address",
+            "description": "<p>Address of Master Node which we want to delete.</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": false,
+            "field": "base_req",
+            "description": "<p>Base request Object</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "base_req.name",
+            "description": "<p>AccountName of the person who is deleting the Master node.</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "string",
+            "optional": false,
+            "field": "base_req.password",
+            "description": "<p>Password of account.</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "string",
+            "optional": false,
+            "field": "base_req.chain_id",
+            "description": "<p>Chain ID</p>"
+          }
+        ]
+      }
+    },
+    "error": {
+      "fields": {
+        "Error 4xx": [
+          {
+            "group": "Error 4xx",
+            "optional": false,
+            "field": "AccountNotExists",
+            "description": "<p>Master Node not exists</p>"
+          }
+        ]
+      },
+      "examples": [
+        {
+          "title": "AccountNotExists-Response:",
+          "content": "{\ncheckTx failed: (1245197) Msg 0 failed: === ABCI Log ===\nCodespace: 19\nCode:      13\nABCICode:  1245197s\nError:     --= Error =--\nData: common.FmtError{format:\"Account is not exist\", args:[]interface {}(nil)}\nMsg Traces:\n--= /Error =--\n\n=== /ABCI Log ===\n}",
+          "type": "json"
+        }
+      ]
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Response:",
+          "content": "{\n  \"Success\": true,\n  \"Hash\": \"32EF9DFB6BC24D3159A8310F1AE438BED479466E\",\n  \"Height\": 3698,\n  \"Data\": \"FRTjZrQKAswn4UeyJ0eXBlIwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19Tb1W/Usl/KB3iflg==\",\n  \"Tags\": [\n      {\n          \"key\": \"ZGVsZXRlZCBWcG4gYWRkcmVzcw==\",\n          \"value\": \"42a0CgLMJ+FE29Vv1LJfygd4n5Y=\"\n     }\n ]\n}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "rest/service.go",
+    "groupTitle": "Sentinel_Tendermint"
+  },
+  {
+    "type": "delete",
     "url": "/vpn",
     "title": "To Delete VPN Node.",
     "name": "deleteVpnNode",
@@ -595,6 +674,78 @@ define({ "api": [
         {
           "title": "Response:",
           "content": "{\n  \"Success\": true,\n  \"Hash\": \"D2C58CAFC580CC39A4CFAB4325991A9378AFE77D\",\n  \"Height\": 1196,\n  \"Data\": \"IjNwWGdHazB5MnBGceyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YWx1ZSI6eyJGc3BlZWQiOiIxMiIsIlBwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19TdZdWIwak5xIg==\",\n  \"Tags\": [\n     {\n      \"key\": \"c2VuZGVyIGFkZHJlc3M=\",\n      \"value\": \"Y29zbW9zYWNjYWRkcjFuY3hlbGpjcjRnOWhzdmw3amRuempkazNyNzYyamUzenk4bXU5MA==\"\n     },\n    {\n     \"key\": \"c2Vlc2lvbiBpZA==\",\n     \"value\": \"M3BYZ0drMHkycEZxN1l1YjBqTnE=\"\n    }\n         ]\n}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "rest/service.go",
+    "groupTitle": "Sentinel_Tendermint"
+  },
+  {
+    "type": "post",
+    "url": "/register/master",
+    "title": "To register Master Node.",
+    "name": "registerMasterNode",
+    "group": "Sentinel_Tendermint",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": false,
+            "field": "base_req",
+            "description": "<p>Base request Object</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "base_req.name",
+            "description": "<p>AccountName .</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "string",
+            "optional": false,
+            "field": "base_req.password",
+            "description": "<p>Password of account.</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "string",
+            "optional": false,
+            "field": "base_req.chain_id",
+            "description": "<p>Chain ID</p>"
+          }
+        ]
+      }
+    },
+    "error": {
+      "fields": {
+        "Error 4xx": [
+          {
+            "group": "Error 4xx",
+            "optional": false,
+            "field": "AccountAlreadyExists",
+            "description": "<p>Master Node already exists</p>"
+          }
+        ]
+      },
+      "examples": [
+        {
+          "title": "AccountAlreadyExists-Response:",
+          "content": "{\ncheckTx failed: (1245197) Msg 0 failed: === ABCI Log ===\nCodespace: 19\nCode:      13\nABCICode:  1245197\nError:     --= Error =--\nData: common.FmtError{format:\"Address already Registered as VPN node\", args:[]interface {}(nil)}\nMsg Traces:\n--= /Error =--\n\n=== /ABCI Log ===\n}",
+          "type": "json"
+        }
+      ]
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Response:",
+          "content": "{\n{\n  \"Success\": true,\n   \"Hash\": \"CF8E073D624F7FA6A41C3CAD9B4A1DB693234225\",\n   \"Height\": 343,\n   \"Data\": \"eyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YWx1ZSI6eyJGc3BlZWQiOiIxMiIsIlBwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19==\",\n   \"Tags\": [\n       {\n            \"key\": \"dnBuIHJlZ2lzdGVyZWQgYWRkcmVzcw==\",\n            \"value\": \"Y29zbW9zYWNjYWRkcjFlZ3RydjdxdGU0NnY2cXEzN3p0YzB2dzRuMmhrejZuempycDVhZQ==\"\n        }\n            ]\n}",
           "type": "json"
         }
       ]

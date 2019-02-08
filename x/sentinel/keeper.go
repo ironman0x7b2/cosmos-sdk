@@ -15,7 +15,6 @@ import (
 	senttype "github.com/cosmos/cosmos-sdk/x/sentinel/types"
 	"github.com/tendermint/tendermint/crypto"
 	"strconv"
-	"fmt"
 )
 
 type PubKeyEd25519 [32]byte

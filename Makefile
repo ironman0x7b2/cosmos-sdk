@@ -1,6 +1,6 @@
 PACKAGES_NOSIMULATION=$(shell go list ./... | grep -v '/simulation')
 PACKAGES_SIMTEST=$(shell go list ./... | grep '/simulation')
-VERSION := $(subst v,,$(shell git describe --tags --long))
+VERSION := $(subst v,,$(shell git describe --tags --long --always))
 COMMIT := $(shell git log -1 --format='%H')
 BUILD_TAGS = netgo
 CAT := $(if $(filter $(OS),Windows_NT),type,cat)

@@ -226,6 +226,43 @@ func registervpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keyb
 	return nil
 }
 
+/**
+* @api {post} /register/master To register Master Node.
+* @apiName registerMasterNode
+* @apiGroup Sentinel-Tendermint
+* @apiParam {Object} base_req Base request Object
+* @apiParam {String} base_req.name AccountName .
+* @apiParam {string} base_req.password Password of account.
+* @apiParam {string} base_req.chain_id Chain ID
+* @apiError AccountAlreadyExists Master Node already exists
+* @apiErrorExample AccountAlreadyExists-Response:
+*{
+* checkTx failed: (1245197) Msg 0 failed: === ABCI Log ===
+* Codespace: 19
+* Code:      13
+* ABCICode:  1245197
+* Error:     --= Error =--
+* Data: common.FmtError{format:"Address already Registered as VPN node", args:[]interface {}(nil)}
+* Msg Traces:
+* --= /Error =--
+*
+*=== /ABCI Log ===
+*}
+* @apiSuccessExample Response:
+{
+*{
+ *   "Success": true,
+*    "Hash": "CF8E073D624F7FA6A41C3CAD9B4A1DB693234225",
+*    "Height": 343,
+*    "Data": "eyJ0eXBlIjoic2VudGluZWwvcmVnaXN0ZXJ2cG4iLCJ2YWx1ZSI6eyJGc3BlZWQiOiIxMiIsIlBwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19==",
+*    "Tags": [
+*        {
+*             "key": "dnBuIHJlZ2lzdGVyZWQgYWRkcmVzcw==",
+*             "value": "Y29zbW9zYWNjYWRkcjFlZ3RydjdxdGU0NnY2cXEzN3p0YzB2dzRuMmhrejZuempycDVhZQ=="
+*         }
+*             ]
+* }
+*/
 
 func registermasterdHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -354,6 +391,45 @@ func deleteVpnHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybas
 	return nil
 }
 
+/**
+* @api {delete} /master To Delete Master Node.
+* @apiName  deleteMasterNode
+* @apiGroup Sentinel-Tendermint
+* @apiParam {String} address  Address of Master Node which we want to delete.
+* @apiParam {Object} base_req Base request Object
+* @apiParam {String} base_req.name AccountName of the person who is deleting the Master node.
+* @apiParam {string} base_req.password Password of account.
+* @apiParam {string} base_req.chain_id Chain ID
+* @apiError AccountNotExists Master Node not exists
+* @apiErrorExample AccountNotExists-Response:
+*{
+* checkTx failed: (1245197) Msg 0 failed: === ABCI Log ===
+* Codespace: 19
+* Code:      13
+* ABCICode:  1245197s
+* Error:     --= Error =--
+* Data: common.FmtError{format:"Account is not exist", args:[]interface {}(nil)}
+* Msg Traces:
+* --= /Error =--
+*
+*=== /ABCI Log ===
+*}
+* @apiSuccessExample Response:
+{
+ *   "Success": true,
+ *   "Hash": "32EF9DFB6BC24D3159A8310F1AE438BED479466E",
+ *   "Height": 3698,
+ *   "Data": "FRTjZrQKAswn4UeyJ0eXBlIwZ2IiOiIyMyIsIkxvY2F0aW9uIjoiaHlkIn19Tb1W/Usl/KB3iflg==",
+ *   "Tags": [
+ *       {
+ *           "key": "ZGVsZXRlZCBWcG4gYWRkcmVzcw==",
+ *           "value": "42a0CgLMJ+FE29Vv1LJfygd4n5Y="
+ *      }
+ *  ]
+}
+*/
+
+
 func deleteMasterHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Keybase, decoder auth.AccountDecoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -365,17 +441,35 @@ func deleteMasterHandlerFn(ctx context.CLIContext, cdc *codec.Codec, kb keys.Key
 		}
 		json.Unmarshal(body, &msg)
 
+		if msg.Address == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(" entered invalid address."))
+			return
+		}
+
 		info, err := kb.Get(msg.BaseReq.Name)
 		if err != nil {
 			utils.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
+
 		addr := sdk.AccAddress(info.GetPubKey().Address())
 		fmt.Println("Address is: ",addr)
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
 		}
+		res, err := ctx.QueryStore(auth.AddressStoreKey(addr), "acc")
+		account, err := decoder(res)
+		if err != nil {
+			fmt.Println("Error while decoding account: ",account)
+		}
+		mAddr, err := sdk.AccAddressFromBech32(msg.Address)
+
+		msg.BaseReq.AccountNumber = account.GetAccountNumber()
+		msg.BaseReq.Sequence = account.GetSequence()
+		msg1 := sentinel.NewMsgDeleteMasterNode(addr, mAddr)
+		utils.CompleteAndBroadcastTxREST(w, r, ctx, msg.BaseReq, []sdk.Msg{msg1}, cdc)
 
 	}
 	return nil

@@ -18,7 +18,7 @@ var (
 
 // return version of CLI/node and commit hash
 func GetVersion() string {
-	return Version
+	return  "0.30.0-0-" + Version
 }
 
 // CMD
