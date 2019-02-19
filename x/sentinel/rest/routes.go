@@ -50,7 +50,10 @@ func ServiceRoutes(ctx context.CoreContext, r *mux.Router, cdc *wire.Codec) {
 		"/vpn/getpayment", // service provider to chain (from kv store)
 		GetVpnPaymentHandlerFn(ctx, cdc),
 	).Methods("POST")
-
+	r.HandleFunc(
+		"/validate-sign",
+		validateSignaturenHandlerFn(cdc, ctx),
+	).Methods("POST")
 }
 
 func QueryRoutes(ctx context.CoreContext, r *mux.Router, cdc *wire.Codec, keeper sentinel.Keeper) {

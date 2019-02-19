@@ -90,3 +90,11 @@ type SendTokens struct {
 	Coins     string `json:"amount"`
 	Gas       int64  `json:"gas"`
 }
+
+type ValidateSign struct {
+	Coins     string `json:"amount"`
+	Sessionid string `json:"session_id"`
+	Counter   int64  `json:"counter"`
+	IsFinal   bool   `json:"isfinal"`
+	Signature string `json:"sign"`
+}

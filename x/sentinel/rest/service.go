@@ -1086,3 +1086,65 @@ func SendTokenHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFu
 
 	}
 }
+
+func validateSignaturenHandlerFn(cdc *wire.Codec, ctx context.CoreContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		body, err := ioutill.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		var validateSign ValidateSign
+		err = json.Unmarshal(body, &validateSign)
+		if err != nil {
+			sentinel.ErrUnMarshal("UnMarshal of request params is failed")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		coins, err := sdk.ParseCoins(validateSign.Coins)
+		if err != nil {
+			sdk.ErrInternal("Parse Coins Failed")
+		}
+
+		sessionId := validateSign.Sessionid
+		res, err := ctx.QueryStore([]byte(sessionId), "sentinel")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't query session."))
+			return
+		}
+
+		var clientSession senttype.Session
+		err = cdc.UnmarshalBinary(res, &clientSession)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't marshall query result. Error: "))
+			return
+		}
+
+		var sig crypto.Signature
+		sig, err = senttype.GetBech64Signature(validateSign.Signature)
+		cdc.UnmarshalBinaryBare([]byte(validateSign.Signature), &sig)
+		if err != nil {
+			w.Write([]byte("Signature from string conversion failed"))
+		}
+
+		clientPubkey := clientSession.CPubKey
+		signBytes := senttype.ClientStdSignBytes(coins, []byte(validateSign.Sessionid), validateSign.Counter, validateSign.IsFinal)
+		if !clientPubkey.VerifyBytes(signBytes, sig) {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("signature verification failed"))
+			return
+		}
+
+		var respon Response
+		respon.Success = true
+		data, err := json.MarshalIndent(respon, "", " ")
+		w.Write(data)
+	}
+}
