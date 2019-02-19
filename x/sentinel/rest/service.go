@@ -1087,6 +1087,25 @@ func SendTokenHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFu
 	}
 }
 
+/**
+* @api {post} /validate-sign To Create sigature of the client.
+* @apiName  ValidateSignature
+* @apiGroup Sentinel-Tendermint
+* @apiParam {String} session_id session-id.
+* @apiParam {String} amount Amount to create signature.
+* @apiParam {Number} counter Counter value of the sigature.
+* @apiParam {Boolean} isfial boolean value for is this final signature or not.
+* @apiParam {string} sign signature of the client.
+* @apiSuccessExample Response:
+*{
+*   "Success": true,
+*   "Hash": "",
+*   "Height": null,
+*   "Data": null,
+*   "Tags": null
+*}
+ */
+
 func validateSignaturenHandlerFn(cdc *wire.Codec, ctx context.CoreContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
