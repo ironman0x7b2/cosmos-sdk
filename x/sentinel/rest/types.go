@@ -1,7 +1,7 @@
 package rest
 
 import (
-	common "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/libs/common"
 )
 
 type MsgRegisterVpnService struct {
@@ -81,6 +81,7 @@ type Response struct {
 	Height  int64           `json:"height"`
 	Data    []byte          `json:"data"`
 	Tags    []common.KVPair `json:"tags"`
+	Error   string           `json:"error"`
 }
 
 type SendTokens struct {
@@ -91,10 +92,8 @@ type SendTokens struct {
 	Gas       int64  `json:"gas"`
 }
 
-type ValidateSign struct {
-	Coins     string `json:"amount"`
-	Sessionid string `json:"session_id"`
-	Counter   int64  `json:"counter"`
-	IsFinal   bool   `json:"isfinal"`
-	Signature string `json:"sign"`
+type MsgVerifyAccount struct {
+	Name     string `json:"name"`
+	Password string `json:"password"`
+	Address  string `json:"address"`
 }

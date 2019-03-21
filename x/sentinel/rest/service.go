@@ -3,7 +3,6 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-
 	"net/http"
 	"reflect"
 	"strconv"
@@ -139,7 +138,7 @@ import (
 *}
 */
 
-func NewResponse(success bool, hash string, height int64, data []byte, tags []common.KVPair) Response {
+func NewResponse(success bool, hash string, height int64, data []byte, tags []common.KVPair, err string) Response {
 	//var res Response
 	return Response{
 		Success: success,
@@ -147,6 +146,7 @@ func NewResponse(success bool, hash string, height int64, data []byte, tags []co
 		Hash:    hash,
 		Data:    data,
 		Tags:    tags,
+		Error:   err,
 	}
 }
 func registervpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
@@ -232,7 +232,7 @@ func registervpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handler
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -288,6 +288,7 @@ func registermasterdHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Han
 		json.Unmarshal(body, &msg)
 		ctx = ctx.WithFromAddressName(msg.Name)
 		ctx = ctx.WithGas(msg.Gas)
+
 		addr, err := ctx.GetFromAddress()
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
@@ -320,7 +321,7 @@ func registermasterdHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Han
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -414,7 +415,7 @@ func deleteVpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFu
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -502,7 +503,7 @@ func deleteMasterHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handle
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -682,7 +683,7 @@ func PayVpnServiceHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -848,7 +849,7 @@ func RefundHandleFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -993,7 +994,7 @@ func GetVpnPaymentHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -1080,90 +1081,60 @@ func SendTokenHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFu
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 
 	}
 }
 
-/**
-* @api {post} /validate-sign To Create sigature of the client.
-* @apiName  ValidateSignature
-* @apiGroup Sentinel-Tendermint
-* @apiParam {String} session_id session-id.
-* @apiParam {String} amount Amount to create signature.
-* @apiParam {Number} counter Counter value of the sigature.
-* @apiParam {Boolean} isfial boolean value for is this final signature or not.
-* @apiParam {string} sign signature of the client.
-* @apiSuccessExample Response:
-*{
-*   "Success": true,
-*   "Hash": "",
-*   "Height": null,
-*   "Data": null,
-*   "Tags": null
-*}
- */
-
-func validateSignaturenHandlerFn(cdc *wire.Codec, ctx context.CoreContext) http.HandlerFunc {
+func verifyKeyHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-
+		msg := MsgVerifyAccount{}
+		var err error
 		body, err := ioutill.ReadAll(r.Body)
+		if err != nil {
+			return
+		}
+
+		json.Unmarshal(body, &msg)
+
+		address, err := sdk.AccAddressFromBech32(msg.Address)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return
 		}
 
-		var validateSign ValidateSign
-		err = json.Unmarshal(body, &validateSign)
+		ctx = ctx.WithFromAddressName(msg.Name)
+		addr, err := ctx.GetFromAddress()
 		if err != nil {
-			sentinel.ErrUnMarshal("UnMarshal of request params is failed")
-			w.WriteHeader(http.StatusBadRequest)
+			respon := NewResponse(false, "", 0, nil, nil, "No account with this name")
+			data, _ := json.MarshalIndent(respon, "", " ")
+			w.Write(data)
 			return
 		}
 
-		coins, err := sdk.ParseCoins(validateSign.Coins)
+		kb, err := ckeys.GetKeyBase()
+		_, err = kb.ExportPrivateKeyObject(msg.Name, msg.Password)
 		if err != nil {
-			sdk.ErrInternal("Parse Coins Failed")
-		}
-
-		sessionId := validateSign.Sessionid
-		res, err := ctx.QueryStore([]byte(sessionId), "sentinel")
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("couldn't query session."))
+			respon := NewResponse(false, "", 0, nil, nil, "Invalid password")
+			data, _ := json.MarshalIndent(respon, "", " ")
+			w.Write(data)
 			return
 		}
 
-		var clientSession senttype.Session
-		err = cdc.UnmarshalBinary(res, &clientSession)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("couldn't marshall query result. Error: "))
+		if address.String() != addr.String() {
+			respon := NewResponse(false, "", 0, nil, nil, "Invalid Address")
+			data, _ := json.MarshalIndent(respon, "", " ")
+			w.Write(data)
 			return
 		}
 
-		var sig crypto.Signature
-		sig, err = senttype.GetBech64Signature(validateSign.Signature)
-		cdc.UnmarshalBinaryBare([]byte(validateSign.Signature), &sig)
-		if err != nil {
-			w.Write([]byte("Signature from string conversion failed"))
-		}
-
-		clientPubkey := clientSession.CPubKey
-		signBytes := senttype.ClientStdSignBytes(coins, []byte(validateSign.Sessionid), validateSign.Counter, validateSign.IsFinal)
-		if !clientPubkey.VerifyBytes(signBytes, sig) {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("signature verification failed"))
-			return
-		}
-
-		var respon Response
-		respon.Success = true
+		respon := NewResponse(true, "", 0, nil, nil, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
+	return nil
 }
