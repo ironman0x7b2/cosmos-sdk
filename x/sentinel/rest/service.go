@@ -1088,6 +1088,53 @@ func SendTokenHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFu
 	}
 }
 
+
+/**
+* @api {get} /verify To verify account.
+* @apiName verifyAccount
+* @apiGroup Sentinel-Tendermint
+* @apiParam {String} name Name Account holder name.
+* @apiParam {String} password Password password for account.
+* @apiParam {String} address Address of the account name.
+*
+* @apiSuccessExample Response:
+*{
+*   "Success": true,
+*   "Hash": "",
+*   "Height": 0,
+*   "Data": "null",
+*    "Tags": "null",
+*    "error" : ""
+*}
+* @apiErrorExample InvalidPassword-Response:
+*{
+*   "Success": false,
+*   "Hash": "",
+*   "Height": 0,
+*   "Data": "null",
+*    "Tags": "null",
+*    "error" : "Invalid password"
+*}
+* @apiErrorExample InvalidAccountName-Response:
+*{
+*   "Success": false,
+*   "Hash": "",
+*   "Height": 0,
+*   "Data": "null",
+*    "Tags": "null",
+*    "error" : "No account with this name"
+*}
+* @apiErrorExample InvalidAddress-Response:
+*{
+*   "Success": false,
+*   "Hash": "",
+*   "Height": 0,
+*   "Data": "null",
+*    "Tags": "null",
+*    "error" : "Invalid address"
+*}
+ */
+
 func verifyKeyHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
