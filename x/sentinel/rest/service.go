@@ -1090,7 +1090,7 @@ func SendTokenHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFu
 
 
 /**
-* @api {get} /verify To verify account.
+* @api {post} /verify To verify account.
 * @apiName verifyAccount
 * @apiGroup Sentinel-Tendermint
 * @apiParam {String} name Name Account holder name.
@@ -1147,10 +1147,18 @@ func verifyKeyHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFu
 
 		json.Unmarshal(body, &msg)
 
+		if msg.Address == "" || msg.Name == "" || msg.Password == "" {
+			respon := NewResponse(false, "", 0, nil, nil, "Invalid params")
+			data, _ := json.MarshalIndent(respon, "", " ")
+			w.Write(data)
+			return
+		}
+
 		address, err := sdk.AccAddressFromBech32(msg.Address)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
+			respon := NewResponse(false, "", 0, nil, nil, "Invalid Address")
+			data, _ := json.MarshalIndent(respon, "", " ")
+			w.Write(data)
 			return
 		}
 

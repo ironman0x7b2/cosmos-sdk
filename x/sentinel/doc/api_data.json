@@ -934,7 +934,7 @@
     "groupTitle": "Sentinel_Tendermint"
   },
   {
-    "type": "get",
+    "type": "post",
     "url": "/verify",
     "title": "To verify account.",
     "name": "verifyAccount",
