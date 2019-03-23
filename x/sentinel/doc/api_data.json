@@ -932,5 +932,70 @@
     "version": "0.0.0",
     "filename": "rest/service.go",
     "groupTitle": "Sentinel_Tendermint"
+  },
+  {
+    "type": "post",
+    "url": "/verify",
+    "title": "To verify account.",
+    "name": "verifyAccount",
+    "group": "Sentinel_Tendermint",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "name",
+            "description": "<p>Name Account holder name.</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "password",
+            "description": "<p>Password password for account.</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "address",
+            "description": "<p>Address of the account name.</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Response:",
+          "content": "{\n  \"Success\": true,\n  \"Hash\": \"\",\n  \"Height\": 0,\n  \"Data\": \"null\",\n   \"Tags\": \"null\",\n   \"error\" : \"\"\n}",
+          "type": "json"
+        }
+      ]
+    },
+    "error": {
+      "examples": [
+        {
+          "title": "InvalidPassword-Response:",
+          "content": "{\n  \"Success\": false,\n  \"Hash\": \"\",\n  \"Height\": 0,\n  \"Data\": \"null\",\n   \"Tags\": \"null\",\n   \"error\" : \"Invalid password\"\n}",
+          "type": "json"
+        },
+        {
+          "title": "InvalidAccountName-Response:",
+          "content": "{\n  \"Success\": false,\n  \"Hash\": \"\",\n  \"Height\": 0,\n  \"Data\": \"null\",\n   \"Tags\": \"null\",\n   \"error\" : \"No account with this name\"\n}",
+          "type": "json"
+        },
+        {
+          "title": "InvalidAddress-Response:",
+          "content": "{\n  \"Success\": false,\n  \"Hash\": \"\",\n  \"Height\": 0,\n  \"Data\": \"null\",\n   \"Tags\": \"null\",\n   \"error\" : \"Invalid address\"\n}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "rest/service.go",
+    "groupTitle": "Sentinel_Tendermint"
   }
 ]

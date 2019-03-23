@@ -3,7 +3,6 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-
 	"net/http"
 	"reflect"
 	"strconv"
@@ -139,7 +138,7 @@ import (
 *}
 */
 
-func NewResponse(success bool, hash string, height int64, data []byte, tags []common.KVPair) Response {
+func NewResponse(success bool, hash string, height int64, data []byte, tags []common.KVPair, err string) Response {
 	//var res Response
 	return Response{
 		Success: success,
@@ -147,6 +146,7 @@ func NewResponse(success bool, hash string, height int64, data []byte, tags []co
 		Hash:    hash,
 		Data:    data,
 		Tags:    tags,
+		Error:   err,
 	}
 }
 func registervpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
@@ -232,7 +232,7 @@ func registervpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handler
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -288,6 +288,7 @@ func registermasterdHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Han
 		json.Unmarshal(body, &msg)
 		ctx = ctx.WithFromAddressName(msg.Name)
 		ctx = ctx.WithGas(msg.Gas)
+
 		addr, err := ctx.GetFromAddress()
 		if err != nil {
 			sdk.ErrInvalidAddress("The given Address is Invalid")
@@ -320,7 +321,7 @@ func registermasterdHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Han
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -414,7 +415,7 @@ func deleteVpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFu
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -502,7 +503,7 @@ func deleteMasterHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handle
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -682,7 +683,7 @@ func PayVpnServiceHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -848,7 +849,7 @@ func RefundHandleFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -993,7 +994,7 @@ func GetVpnPaymentHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handl
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 	}
@@ -1080,9 +1081,115 @@ func SendTokenHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFu
 			w.Write([]byte(err.Error()))
 			return
 		}
-		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags)
+		respon := NewResponse(true, res.Hash.String(), res.Height, res.DeliverTx.Data, res.DeliverTx.Tags, "")
 		data, err := json.MarshalIndent(respon, "", " ")
 		w.Write(data)
 
 	}
+}
+
+
+/**
+* @api {post} /verify To verify account.
+* @apiName verifyAccount
+* @apiGroup Sentinel-Tendermint
+* @apiParam {String} name Name Account holder name.
+* @apiParam {String} password Password password for account.
+* @apiParam {String} address Address of the account name.
+*
+* @apiSuccessExample Response:
+*{
+*   "Success": true,
+*   "Hash": "",
+*   "Height": 0,
+*   "Data": "null",
+*    "Tags": "null",
+*    "error" : ""
+*}
+* @apiErrorExample InvalidPassword-Response:
+*{
+*   "Success": false,
+*   "Hash": "",
+*   "Height": 0,
+*   "Data": "null",
+*    "Tags": "null",
+*    "error" : "Invalid password"
+*}
+* @apiErrorExample InvalidAccountName-Response:
+*{
+*   "Success": false,
+*   "Hash": "",
+*   "Height": 0,
+*   "Data": "null",
+*    "Tags": "null",
+*    "error" : "No account with this name"
+*}
+* @apiErrorExample InvalidAddress-Response:
+*{
+*   "Success": false,
+*   "Hash": "",
+*   "Height": 0,
+*   "Data": "null",
+*    "Tags": "null",
+*    "error" : "Invalid address"
+*}
+ */
+
+func verifyKeyHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		msg := MsgVerifyAccount{}
+		var err error
+		body, err := ioutill.ReadAll(r.Body)
+		if err != nil {
+			return
+		}
+
+		json.Unmarshal(body, &msg)
+
+		if msg.Address == "" || msg.Name == "" || msg.Password == "" {
+			respon := NewResponse(false, "", 0, nil, nil, "Invalid params")
+			data, _ := json.MarshalIndent(respon, "", " ")
+			w.Write(data)
+			return
+		}
+
+		address, err := sdk.AccAddressFromBech32(msg.Address)
+		if err != nil {
+			respon := NewResponse(false, "", 0, nil, nil, "Invalid Address")
+			data, _ := json.MarshalIndent(respon, "", " ")
+			w.Write(data)
+			return
+		}
+
+		ctx = ctx.WithFromAddressName(msg.Name)
+		addr, err := ctx.GetFromAddress()
+		if err != nil {
+			respon := NewResponse(false, "", 0, nil, nil, "No account with this name")
+			data, _ := json.MarshalIndent(respon, "", " ")
+			w.Write(data)
+			return
+		}
+
+		kb, err := ckeys.GetKeyBase()
+		_, err = kb.ExportPrivateKeyObject(msg.Name, msg.Password)
+		if err != nil {
+			respon := NewResponse(false, "", 0, nil, nil, "Invalid password")
+			data, _ := json.MarshalIndent(respon, "", " ")
+			w.Write(data)
+			return
+		}
+
+		if address.String() != addr.String() {
+			respon := NewResponse(false, "", 0, nil, nil, "Invalid Address")
+			data, _ := json.MarshalIndent(respon, "", " ")
+			w.Write(data)
+			return
+		}
+
+		respon := NewResponse(true, "", 0, nil, nil, "")
+		data, err := json.MarshalIndent(respon, "", " ")
+		w.Write(data)
+	}
+	return nil
 }
