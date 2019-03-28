@@ -1,6 +1,7 @@
 package types
 
 type Registervpn struct {
+	Name string
 	Ip         string
 	NetSpeed   NetSpeed
 	PricePerGb int64
@@ -21,8 +22,9 @@ type Location struct {
 	Country   string
 }
 
-func NewVpnRegister(ip string, upload int64, download int64, ppgb int64, method string, latitude int64, long int64, city string, country string, nodetype string, version string) Registervpn {
+func NewVpnRegister(name,ip string, upload int64, download int64, ppgb int64, method string, latitude int64, long int64, city string, country string, nodetype string, version string) Registervpn {
 	return Registervpn{
+		Name:name,
 		Ip: ip,
 		NetSpeed: NetSpeed{
 			UploadSpeed:   upload,
