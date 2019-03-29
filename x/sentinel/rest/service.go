@@ -162,18 +162,21 @@ func registervpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handler
 			return
 		}
 		err = json.Unmarshal(body, &msg)
-		fmt.Println(string(body))
-		fmt.Println(err)
-
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Invalid  Msg Unmarshal function Request"))
 			return
 		}
-		fmt.Println("node name"+msg.Name)
+
 		if msg.Name == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Node name require"))
+			return
+		}
+
+		if len(msg.Name) > 128 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Node name length should not be greater than 128"))
 			return
 		}
 
