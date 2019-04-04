@@ -5,6 +5,7 @@ import (
 )
 
 type MsgRegisterVpnService struct {
+	Name          string `json:"node_name"`
 	Ip            string `json:"ip"`
 	UploadSpeed   int64  `json:"upload_speed"`
 	DownloadSpeed int64  `json:"download_speed"`

@@ -711,6 +711,13 @@
             "group": "Parameter",
             "type": "String",
             "optional": false,
+            "field": "name",
+            "description": "<p>Node name of VPN service provider.</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
             "field": "ip",
             "description": "<p>Ip address of VPN service provider.</p>"
           },
@@ -783,13 +790,6 @@
             "optional": false,
             "field": "version",
             "description": "<p>version.</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": false,
-            "field": "name",
-            "description": "<p>Account name of service provider.</p>"
           },
           {
             "group": "Parameter",

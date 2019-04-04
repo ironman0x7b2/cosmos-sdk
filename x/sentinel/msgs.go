@@ -23,6 +23,7 @@ import (
 /// USE gofmt command for styling/structing the go code
 
 type MsgRegisterVpnService struct {
+	Name       string
 	From       sdk.AccAddress
 	Ip         string
 	NetSpeed   NetSpeed
@@ -44,8 +45,9 @@ type Location struct {
 	Country   string
 }
 
-func NewMsgRegisterVpnService(address sdk.AccAddress, ip string, upload int64, download int64, ppgb int64, method string, latitude int64, long int64, city string, country string, nodetype string, version string) MsgRegisterVpnService {
+func NewMsgRegisterVpnService(name string, address sdk.AccAddress, ip string, upload int64, download int64, ppgb int64, method string, latitude int64, long int64, city string, country string, nodetype string, version string) MsgRegisterVpnService {
 	return MsgRegisterVpnService{
+		Name: name,
 		From: address,
 		Ip:   ip,
 		NetSpeed: NetSpeed{
