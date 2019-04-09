@@ -62,7 +62,7 @@ import (
 * @api {post} /register/vpn To register VPN service provider.
 * @apiName registerVPN
 * @apiGroup Sentinel-Tendermint
-* @apiParam {String} name Node name of VPN service provider.
+* @apiParam {String} moniker Node name of VPN service provider.
 * @apiParam {String} ip Ip address of VPN service provider.
 * @apiParam {Number} upload_speed Upload Net speed of VPN service.
 * @apiParam {Number} download_speed Download Net speed of VPN service.
@@ -168,13 +168,13 @@ func registervpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handler
 			return
 		}
 
-		if msg.Name == "" {
+		if msg.Moniker == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Node name require"))
 			return
 		}
 
-		if len(msg.Name) > 128 {
+		if len(msg.Moniker) > 128 {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("Node name length should not be greater than 128"))
 			return
@@ -229,7 +229,7 @@ func registervpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handler
 
 		}
 
-		msg1 := sentinel.NewMsgRegisterVpnService(msg.Name, addr, msg.Ip, msg.Ppgb, msg.UploadSpeed, msg.DownloadSpeed, msg.EncMethod, msg.Latitude, msg.Longitude, msg.City, msg.Country, msg.NodeType, msg.Version)
+		msg1 := sentinel.NewMsgRegisterVpnService(msg.Moniker, addr, msg.Ip, msg.Ppgb, msg.UploadSpeed, msg.DownloadSpeed, msg.EncMethod, msg.Latitude, msg.Longitude, msg.City, msg.Country, msg.NodeType, msg.Version)
 
 		txBytes, err := ctx.SignAndBuild(msg.Localaccount, msg.Password, []sdk.Msg{msg1}, cdc)
 

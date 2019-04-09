@@ -5,7 +5,7 @@ import (
 )
 
 type MsgRegisterVpnService struct {
-	Name          string `json:"node_name"`
+	Moniker       string `json:"moniker"`
 	Ip            string `json:"ip"`
 	UploadSpeed   int64  `json:"upload_speed"`
 	DownloadSpeed int64  `json:"download_speed"`
@@ -82,7 +82,7 @@ type Response struct {
 	Height  int64           `json:"height"`
 	Data    []byte          `json:"data"`
 	Tags    []common.KVPair `json:"tags"`
-	Error   string           `json:"error"`
+	Error   string          `json:"error"`
 }
 
 type SendTokens struct {
