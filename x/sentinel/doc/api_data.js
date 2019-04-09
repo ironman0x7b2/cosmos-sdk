@@ -711,7 +711,7 @@ define({ "api": [
             "group": "Parameter",
             "type": "String",
             "optional": false,
-            "field": "name",
+            "field": "moniker",
             "description": "<p>Node name of VPN service provider.</p>"
           },
           {
@@ -790,6 +790,13 @@ define({ "api": [
             "optional": false,
             "field": "version",
             "description": "<p>version.</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "name",
+            "description": "<p>Account name of service provider.</p>"
           },
           {
             "group": "Parameter",
