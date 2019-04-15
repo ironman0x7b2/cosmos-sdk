@@ -51,7 +51,7 @@ func (keeper Keeper) RegisterVpnService(ctx sdk.Context, msg MsgRegisterVpnServi
 	if address == nil {
 
 		if len(msg.Moniker) > 128 {
-			return nil, sdk.ErrInternal("Node name length should not be greater than 128")
+			return nil, sdk.ErrInternal("Node moniker length should not be greater than 128")
 		}
 		vpnreg := senttype.NewVpnRegister(msg.Moniker, msg.Ip, msg.NetSpeed.UploadSpeed, msg.NetSpeed.DownloadSpeed, msg.PricePerGb, msg.EncMethod, msg.Location.Latitude, msg.Location.Longitude, msg.Location.City, msg.Location.Country, msg.NodeType, msg.Version)
 		bz, _ := keeper.cdc.MarshalBinary(vpnreg)
