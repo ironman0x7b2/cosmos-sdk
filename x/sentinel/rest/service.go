@@ -170,7 +170,7 @@ func registervpnHandlerFn(ctx context.CoreContext, cdc *wire.Codec) http.Handler
 
 		if msg.Moniker == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Node moniker is require"))
+			w.Write([]byte("Moniker for dVPN Node is required"))
 			return
 		}
 
