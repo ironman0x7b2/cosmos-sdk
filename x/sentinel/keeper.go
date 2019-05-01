@@ -50,6 +50,9 @@ func (keeper Keeper) RegisterVpnService(ctx sdk.Context, msg MsgRegisterVpnServi
 	address := store.Get([]byte(sentKey))
 	if address == nil {
 
+		if len(msg.Moniker) == 0 {
+			return nil, sdk.ErrInternal("Moniker for dVPN Node is required")
+		}
 		if len(msg.Moniker) > 128 {
 			return nil, sdk.ErrInternal("Node moniker length should not be greater than 128")
 		}
